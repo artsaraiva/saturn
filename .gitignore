@@ -1,0 +1,7 @@
+.worktrees/
+worktrees/
+.playwright-mcp/
+.superpowers/
+docs/superpowers/
+docs/*.md
+docs/art/prompts/
