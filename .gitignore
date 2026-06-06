@@ -2,6 +2,12 @@
 worktrees/
 .playwright-mcp/
 .superpowers/
+.opencode/
+graphify-out/
+.saturn/
+.tmp-review/
+__pycache__/
+*.egg-info/
 docs/superpowers/
 docs/*.md
 docs/art/prompts/
