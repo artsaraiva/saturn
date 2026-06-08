@@ -91,3 +91,21 @@ def test_insert_revision_rejects_empty_entity_type(run_saturn, tmp_path):
     with connect(tmp_path / ".saturn" / "saturn.db") as conn:
         with pytest.raises(ValueError, match="entity_type must not be empty"):
             insert_revision(conn, "  ", "f1", "created", None, {"s": "A"}, "cli")
+
+
+def test_insert_fact_creates_revision(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+
+    from saturn.facts import build_fact_input, insert_fact
+    from saturn.revisions import list_revisions
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        fact = build_fact_input("Saturn", "is", "planet", None, 0.8)
+        fact_id = insert_fact(conn, fact)
+
+        revisions = list_revisions(conn, entity_type="fact", entity_id=fact_id)
+
+        assert len(revisions) == 1
+        assert revisions[0]["change_type"] == "created"
+        assert revisions[0]["before"] is None
+        assert '"subject": "Saturn"' in revisions[0]["after"]

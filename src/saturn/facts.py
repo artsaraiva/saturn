@@ -60,12 +60,14 @@ def build_fact_input(
 
 
 def insert_fact(connection, fact: FactInput) -> str:
+    from saturn.revisions import insert_revision
+
     fact_id = str(uuid.uuid4())
     now = datetime.now(UTC).isoformat()
     connection.execute(
         """
-        INSERT INTO facts(id, subject, predicate, object, source, confidence, created_at, updated_at)
-        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO facts(id, subject, predicate, object, source, confidence, status, created_at, updated_at)
+        VALUES(?, ?, ?, ?, ?, ?, 'active', ?, ?)
         """,
         (
             fact_id,
@@ -78,7 +80,22 @@ def insert_fact(connection, fact: FactInput) -> str:
             now,
         ),
     )
-    connection.commit()
+    insert_revision(
+        connection,
+        entity_type="fact",
+        entity_id=fact_id,
+        change_type="created",
+        before=None,
+        after={
+            "subject": fact.subject,
+            "predicate": fact.predicate,
+            "object": fact.object,
+            "source": fact.source,
+            "confidence": fact.confidence,
+            "status": "active",
+        },
+        actor="cli",
+    )
     return fact_id
 
 
