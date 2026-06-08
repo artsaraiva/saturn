@@ -39,6 +39,18 @@ CREATE TABLE IF NOT EXISTS revisions (
   timestamp TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS contradictions (
+  id TEXT PRIMARY KEY,
+  fact_a_id TEXT NOT NULL REFERENCES facts(id),
+  fact_b_id TEXT NOT NULL REFERENCES facts(id),
+  reason TEXT NOT NULL,
+  score REAL NOT NULL DEFAULT 1.0,
+  state TEXT NOT NULL DEFAULT 'open',
+  resolution_type TEXT,
+  resolved_by TEXT,
+  resolved_at TEXT
+);
+
 CREATE TABLE IF NOT EXISTS schema_meta (
   version INTEGER NOT NULL,
   applied_at TEXT NOT NULL
@@ -67,6 +79,19 @@ def migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
           after TEXT,
           actor TEXT NOT NULL DEFAULT 'cli',
           timestamp TEXT NOT NULL
+        )
+    """)
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS contradictions (
+          id TEXT PRIMARY KEY,
+          fact_a_id TEXT NOT NULL REFERENCES facts(id),
+          fact_b_id TEXT NOT NULL REFERENCES facts(id),
+          reason TEXT NOT NULL,
+          score REAL NOT NULL DEFAULT 1.0,
+          state TEXT NOT NULL DEFAULT 'open',
+          resolution_type TEXT,
+          resolved_by TEXT,
+          resolved_at TEXT
         )
     """)
     connection.execute(
@@ -152,6 +177,17 @@ def verify_database_shape(connection) -> None:
             "after",
             "actor",
             "timestamp",
+        },
+        "contradictions": {
+            "id",
+            "fact_a_id",
+            "fact_b_id",
+            "reason",
+            "score",
+            "state",
+            "resolution_type",
+            "resolved_by",
+            "resolved_at",
         },
     }
     for table_name, expected_columns in required_columns.items():

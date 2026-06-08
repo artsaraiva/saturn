@@ -97,6 +97,8 @@ def insert_fact(connection, fact: FactInput) -> str:
         },
         actor="cli",
     )
+    from saturn.contradictions import detect_contradictions
+    detect_contradictions(connection, fact_id)
     return fact_id
 
 
@@ -166,6 +168,8 @@ def update_fact(
         after=after,
         actor=actor,
     )
+    from saturn.contradictions import detect_contradictions
+    detect_contradictions(connection, fact_id)
     connection.commit()
 
 
