@@ -20,6 +20,7 @@ from saturn.db import (
 )
 from saturn.doctor import bootstrap_project_status_docs, run_doctor
 from saturn.facts import build_fact_input, insert_fact, search_facts
+from saturn.ingest import IngestResult, run_ingest
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -41,6 +42,14 @@ def build_parser() -> argparse.ArgumentParser:
     query_parser.add_argument("terms")
 
     subparsers.add_parser("doctor")
+
+    ingest_parser = subparsers.add_parser("ingest")
+    ingest_parser.add_argument("path", help="File or directory to ingest")
+    ingest_parser.add_argument("--source", help="Override source for all facts")
+    ingest_parser.add_argument("--dry-run", action="store_true", help="Preview without storing")
+    ingest_parser.add_argument("--verbose", action="store_true", help="Show per-fact details")
+    ingest_parser.add_argument("--format", choices=["csv", "tsv", "json", "txt"],
+                                help="Force input format (default: auto-detect by extension)")
     return parser
 
 
@@ -99,6 +108,37 @@ def handle_doctor() -> int:
     return 0 if result.ok else 1
 
 
+def handle_ingest(args: argparse.Namespace) -> int:
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    result = run_ingest(
+        args.path,
+        source=args.source,
+        dry_run=args.dry_run,
+        verbose=args.verbose,
+        format=args.format,
+        config=config,
+    )
+    for message in result.messages:
+        print(message)
+
+    s = result.stats
+    total = s.total_files
+    if s.errors > 0 or s.skipped > 0:
+        parts = [f"Processed {s.total_files} file(s), {s.total_facts} fact(s)"]
+        if s.errors:
+            parts.append(f"{s.errors} error(s)")
+        if s.skipped:
+            parts.append(f"{s.skipped} skipped")
+        print(", ".join(parts))
+        return 1
+    if total == 0:
+        print("No supported files found.")
+        return 1
+    print(f"Ingested {s.total_facts} fact(s) from {s.total_files} file(s).")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -111,6 +151,8 @@ def main(argv: list[str] | None = None) -> int:
             return handle_query(args)
         if args.command == "doctor":
             return handle_doctor()
+        if args.command == "ingest":
+            return handle_ingest(args)
         return 0
     except WorkspaceNotInitializedError as error:
         print(str(error))
