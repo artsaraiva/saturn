@@ -169,6 +169,50 @@ def update_fact(
     connection.commit()
 
 
+def archive_fact(
+    connection: sqlite3.Connection,
+    fact_id: str,
+    actor: str = "cli",
+) -> None:
+    from saturn.revisions import insert_revision
+
+    row = connection.execute(
+        "SELECT subject, predicate, object, source, confidence, status FROM facts WHERE id = ?",
+        (fact_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Fact not found: {fact_id}")
+
+    if row["status"] == "archived":
+        raise ValueError("Fact is already archived")
+
+    before = {
+        "subject": row["subject"],
+        "predicate": row["predicate"],
+        "object": row["object"],
+        "source": row["source"],
+        "confidence": row["confidence"],
+        "status": row["status"],
+    }
+
+    now = datetime.now(UTC).isoformat()
+    connection.execute(
+        "UPDATE facts SET status = 'archived', updated_at = ? WHERE id = ?",
+        (now, fact_id),
+    )
+
+    insert_revision(
+        connection,
+        entity_type="fact",
+        entity_id=fact_id,
+        change_type="archived",
+        before=before,
+        after=None,
+        actor=actor,
+    )
+    connection.commit()
+
+
 def search_facts(connection, raw_query: str) -> list[FactRecord]:
     exact = raw_query.strip().lower()
     partial = exact
