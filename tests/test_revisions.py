@@ -1,3 +1,4 @@
+import pytest
 import sqlite3
 from saturn.db import connect
 from saturn.revisions import insert_revision, list_revisions, get_revision
@@ -82,3 +83,11 @@ def test_get_revision_returns_full_details(run_saturn, tmp_path):
         assert revision["change_type"] == "updated"
         assert '"subject": "Old"' in revision["before"]
         assert '"subject": "New"' in revision["after"]
+
+
+def test_insert_revision_rejects_empty_entity_type(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        with pytest.raises(ValueError, match="entity_type must not be empty"):
+            insert_revision(conn, "  ", "f1", "created", None, {"s": "A"}, "cli")

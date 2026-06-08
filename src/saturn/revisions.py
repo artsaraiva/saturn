@@ -7,6 +7,9 @@ from datetime import UTC, datetime
 from typing import Any
 
 
+from saturn.facts import validate_required_text
+
+
 def insert_revision(
     connection: sqlite3.Connection,
     entity_type: str,
@@ -16,6 +19,10 @@ def insert_revision(
     after: dict[str, Any] | None,
     actor: str = "cli",
 ) -> str:
+    entity_type = validate_required_text("entity_type", entity_type)
+    entity_id = validate_required_text("entity_id", entity_id)
+    change_type = validate_required_text("change_type", change_type)
+
     revision_id = str(uuid.uuid4())
     timestamp = datetime.now(UTC).isoformat()
 
