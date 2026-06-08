@@ -5,7 +5,7 @@ from pathlib import Path
 import tomllib
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class WorkspaceNotInitializedError(RuntimeError):

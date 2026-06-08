@@ -23,7 +23,7 @@ def test_init_creates_workspace_files(run_saturn, tmp_path):
 
     assert "facts" in tables
     assert "schema_meta" in tables
-    assert schema_version == 1
+    assert schema_version == 2
 
 
 def test_init_does_not_overwrite_existing_project_status_docs(run_saturn, tmp_path):
@@ -62,7 +62,7 @@ def test_init_uses_existing_configured_database_path(run_saturn, tmp_path):
             "SELECT version FROM schema_meta"
         ).fetchone()[0]
 
-    assert schema_version == 1
+    assert schema_version == 2
 
 
 def test_init_fails_when_database_schema_version_does_not_match_config(run_saturn, tmp_path):
@@ -103,7 +103,7 @@ def test_init_fails_when_database_schema_version_does_not_match_config(run_satur
     output = result.stdout + result.stderr
     assert "schema version" in output
     assert "999" in output
-    assert "1" in output
+    assert "2" in output
 
     with sqlite3.connect(workspace_dir / "saturn.db") as connection:
         tables = {

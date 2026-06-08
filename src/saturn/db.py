@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS facts (
   object TEXT NOT NULL,
   source TEXT,
   confidence REAL NOT NULL DEFAULT 0.8,
+  status TEXT NOT NULL DEFAULT 'active',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
@@ -41,6 +42,16 @@ def connect(db_path: Path) -> sqlite3.Connection:
     return connection
 
 
+def migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        "ALTER TABLE facts ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"
+    )
+    connection.execute(
+        "UPDATE schema_meta SET version = 2"
+    )
+    connection.commit()
+
+
 def initialize_database(db_path: Path, schema_version: int) -> None:
     try:
         with connect(db_path) as connection:
@@ -56,7 +67,9 @@ def initialize_database(db_path: Path, schema_version: int) -> None:
                     actual_version = connection.execute(
                         "SELECT version FROM schema_meta LIMIT 1"
                     ).fetchone()["version"]
-                    if actual_version != schema_version:
+                    if actual_version == 1 and schema_version == 2:
+                        migrate_v1_to_v2(connection)
+                    elif actual_version != schema_version:
                         raise ValueError(
                             "Database schema version mismatch: "
                             f"found {actual_version}, expected {schema_version}"
