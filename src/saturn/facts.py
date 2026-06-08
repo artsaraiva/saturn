@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import sqlite3
 import uuid
 
 
@@ -97,6 +98,75 @@ def insert_fact(connection, fact: FactInput) -> str:
         actor="cli",
     )
     return fact_id
+
+
+def update_fact(
+    connection: sqlite3.Connection,
+    fact_id: str,
+    subject: str | None = None,
+    predicate: str | None = None,
+    object: str | None = None,
+    source: str | None = None,
+    confidence: float | None = None,
+    actor: str = "cli",
+) -> None:
+    from saturn.revisions import insert_revision
+
+    row = connection.execute(
+        "SELECT subject, predicate, object, source, confidence, status FROM facts WHERE id = ?",
+        (fact_id,),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Fact not found: {fact_id}")
+
+    status = row["status"]
+    if status in ("archived", "superseded"):
+        raise ValueError(f"Cannot update fact with status '{status}'")
+
+    before = {
+        "subject": row["subject"],
+        "predicate": row["predicate"],
+        "object": row["object"],
+        "source": row["source"],
+        "confidence": row["confidence"],
+        "status": row["status"],
+    }
+
+    updates: dict[str, object] = {}
+    if subject is not None:
+        updates["subject"] = normalize_text(subject)
+    if predicate is not None:
+        updates["predicate"] = normalize_text(predicate)
+    if object is not None:
+        updates["object"] = normalize_text(object)
+    if source is not None:
+        updates["source"] = normalize_text(source)
+    if confidence is not None:
+        updates["confidence"] = confidence
+
+    if not updates:
+        return
+
+    now = datetime.now(UTC).isoformat()
+    set_clauses = ", ".join(f"{k} = ?" for k in updates)
+    values = list(updates.values()) + [now, fact_id]
+    connection.execute(
+        f"UPDATE facts SET {set_clauses}, updated_at = ? WHERE id = ?",
+        values,
+    )
+
+    after = {**before, **updates}
+
+    insert_revision(
+        connection,
+        entity_type="fact",
+        entity_id=fact_id,
+        change_type="updated",
+        before=before,
+        after=after,
+        actor=actor,
+    )
+    connection.commit()
 
 
 def search_facts(connection, raw_query: str) -> list[FactRecord]:
