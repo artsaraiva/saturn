@@ -28,6 +28,17 @@ CREATE TABLE IF NOT EXISTS facts (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS revisions (
+  id TEXT PRIMARY KEY,
+  entity_type TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  change_type TEXT NOT NULL,
+  before TEXT,
+  after TEXT,
+  actor TEXT NOT NULL DEFAULT 'cli',
+  timestamp TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS schema_meta (
   version INTEGER NOT NULL,
   applied_at TEXT NOT NULL
@@ -46,6 +57,18 @@ def migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
     connection.execute(
         "ALTER TABLE facts ADD COLUMN status TEXT NOT NULL DEFAULT 'active'"
     )
+    connection.execute("""
+        CREATE TABLE IF NOT EXISTS revisions (
+          id TEXT PRIMARY KEY,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT NOT NULL,
+          change_type TEXT NOT NULL,
+          before TEXT,
+          after TEXT,
+          actor TEXT NOT NULL DEFAULT 'cli',
+          timestamp TEXT NOT NULL
+        )
+    """)
     connection.execute(
         "UPDATE schema_meta SET version = 2"
     )
@@ -120,6 +143,16 @@ def verify_database_shape(connection) -> None:
             "updated_at",
         },
         "schema_meta": {"version", "applied_at"},
+        "revisions": {
+            "id",
+            "entity_type",
+            "entity_id",
+            "change_type",
+            "before",
+            "after",
+            "actor",
+            "timestamp",
+        },
     }
     for table_name, expected_columns in required_columns.items():
         row = connection.execute(
