@@ -163,6 +163,65 @@ def test_init_fails_cleanly_for_malformed_existing_schema_meta(run_saturn, tmp_p
     assert "traceback" not in output
 
 
+def test_init_migrates_v1_database_to_v2(run_saturn, tmp_path):
+    workspace_dir = tmp_path / ".saturn"
+    workspace_dir.mkdir()
+    (workspace_dir / "config.toml").write_text(
+        'schema_version = 2\n'
+        'db_path = ".saturn/saturn.db"\n'
+        'project_root = "."\n',
+        encoding="utf-8",
+    )
+
+    with sqlite3.connect(workspace_dir / "saturn.db") as connection:
+        connection.execute(
+            "CREATE TABLE facts ("
+            "id TEXT PRIMARY KEY, "
+            "subject TEXT NOT NULL, "
+            "predicate TEXT NOT NULL, "
+            "object TEXT NOT NULL, "
+            "source TEXT, "
+            "confidence REAL NOT NULL DEFAULT 0.8, "
+            "created_at TEXT NOT NULL, "
+            "updated_at TEXT NOT NULL"
+            ")"
+        )
+        connection.execute(
+            "CREATE TABLE schema_meta (version INTEGER NOT NULL, applied_at TEXT NOT NULL)"
+        )
+        connection.execute(
+            "INSERT INTO schema_meta(version, applied_at) VALUES(?, ?)",
+            (1, "2026-01-01T00:00:00+00:00"),
+        )
+        connection.execute(
+            "INSERT INTO facts(id, subject, predicate, object, source, confidence, created_at, updated_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            ("f1", "saturn", "type", "planet", "manual", 0.9, "2026-01-01T00:00:00+00:00", "2026-01-01T00:00:00+00:00"),
+        )
+        connection.commit()
+
+    result = run_saturn(tmp_path, "init")
+
+    assert result.returncode == 0
+
+    with sqlite3.connect(workspace_dir / "saturn.db") as connection:
+        connection.row_factory = sqlite3.Row
+        columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(facts)")
+        }
+        schema_version = connection.execute(
+            "SELECT version FROM schema_meta"
+        ).fetchone()[0]
+        fact_status = connection.execute(
+            "SELECT status FROM facts WHERE id = 'f1'"
+        ).fetchone()[0]
+
+    assert "status" in columns
+    assert schema_version == 2
+    assert fact_status == "active"
+
+
 def test_init_fails_cleanly_for_malformed_or_incomplete_config(run_saturn, tmp_path):
     workspace_dir = tmp_path / ".saturn"
     workspace_dir.mkdir()

@@ -59,7 +59,6 @@ def initialize_database(db_path: Path, schema_version: int) -> None:
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'schema_meta'"
             ).fetchone()
             if schema_meta_exists:
-                verify_database_shape(connection)
                 current = connection.execute(
                     "SELECT COUNT(*) AS count FROM schema_meta"
                 ).fetchone()["count"]
@@ -74,6 +73,7 @@ def initialize_database(db_path: Path, schema_version: int) -> None:
                             "Database schema version mismatch: "
                             f"found {actual_version}, expected {schema_version}"
                         )
+                verify_database_shape(connection)
 
             connection.executescript(SCHEMA_SQL)
             current = connection.execute(
@@ -115,6 +115,7 @@ def verify_database_shape(connection) -> None:
             "object",
             "source",
             "confidence",
+            "status",
             "created_at",
             "updated_at",
         },
