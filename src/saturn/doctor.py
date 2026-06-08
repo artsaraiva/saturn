@@ -33,8 +33,8 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - `saturn facts add`
   - `saturn query`
   - `saturn doctor`
-- Not-started slices:
   - bulk ingestion
+- Not-started slices:
   - revisions and richer fact metadata
   - deduplication and contradiction records
   - daemon and MCP interfaces
@@ -55,9 +55,9 @@ def refresh_project_status_docs(project_root: Path) -> None:
             "saturn facts add",
             "saturn query",
             "saturn doctor",
+            "bulk ingestion",
         ],
         "not_started_slices": [
-            "bulk ingestion",
             "revisions and richer fact metadata",
             "deduplication and contradiction records",
             "daemon and MCP interfaces",
@@ -66,7 +66,6 @@ def refresh_project_status_docs(project_root: Path) -> None:
         "blockers": [],
         "open_decisions": [],
         "recommended_next_tasks": [
-            "add bulk ingestion from files",
             "add revisions table",
             "add contradiction workflows",
         ],
