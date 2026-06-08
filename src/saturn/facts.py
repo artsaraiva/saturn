@@ -213,11 +213,15 @@ def archive_fact(
     connection.commit()
 
 
-def search_facts(connection, raw_query: str) -> list[FactRecord]:
+def search_facts(connection, raw_query: str, include_archived: bool = False) -> list[FactRecord]:
     exact = raw_query.strip().lower()
     partial = exact
+    if include_archived:
+        status_filter = "AND status != 'superseded'"
+    else:
+        status_filter = "AND status NOT IN ('archived', 'superseded')"
     rows = connection.execute(
-        """
+        f"""
         SELECT
           subject,
           predicate,
@@ -234,9 +238,10 @@ def search_facts(connection, raw_query: str) -> list[FactRecord]:
             CASE WHEN instr(lower(object), ?) > 0 THEN 5 ELSE 0 END
           ) AS match_score
         FROM facts
-        WHERE instr(lower(subject), ?) > 0
+        WHERE (instr(lower(subject), ?) > 0
            OR instr(lower(predicate), ?) > 0
-           OR instr(lower(object), ?) > 0
+           OR instr(lower(object), ?) > 0)
+          {status_filter}
         ORDER BY
           match_score DESC,
           CASE WHEN lower(subject) = ? THEN 1 ELSE 0 END DESC,

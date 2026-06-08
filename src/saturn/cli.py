@@ -40,6 +40,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("terms")
+    query_parser.add_argument("--include-archived", action="store_true")
 
     subparsers.add_parser("doctor")
 
@@ -87,7 +88,7 @@ def handle_query(args: argparse.Namespace) -> int:
     config = require_config(Path.cwd())
     require_initialized_database(config.db_path, config.schema_version)
     with connect(config.db_path) as connection:
-        rows = search_facts(connection, args.terms)
+        rows = search_facts(connection, args.terms, include_archived=args.include_archived)
 
     if not rows:
         print("No matching facts found.")

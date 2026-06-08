@@ -162,3 +162,48 @@ def test_query_fails_cleanly_when_workspace_db_has_invalid_schema_shape(
     output = (result.stdout + result.stderr).lower()
     assert "workspace is not initialized" in output or "run `saturn init` first" in output
     assert "traceback" not in output
+
+
+def test_query_excludes_archived_facts(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    run_saturn(tmp_path, "facts", "add", "--subject", "Saturn", "--predicate", "is", "--object", "planet")
+
+    conn = sqlite3.connect(tmp_path / ".saturn" / "saturn.db")
+    fact_id = conn.execute("SELECT id FROM facts WHERE subject = 'Saturn'").fetchone()[0]
+    conn.execute("UPDATE facts SET status = 'archived' WHERE id = ?", (fact_id,))
+    conn.commit()
+    conn.close()
+
+    result = run_saturn(tmp_path, "query", "Saturn")
+    assert result.returncode == 0
+    assert "No matching facts found" in result.stdout
+
+
+def test_query_excludes_superseded_facts(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    run_saturn(tmp_path, "facts", "add", "--subject", "Saturn", "--predicate", "is", "--object", "planet")
+
+    conn = sqlite3.connect(tmp_path / ".saturn" / "saturn.db")
+    fact_id = conn.execute("SELECT id FROM facts WHERE subject = 'Saturn'").fetchone()[0]
+    conn.execute("UPDATE facts SET status = 'superseded' WHERE id = ?", (fact_id,))
+    conn.commit()
+    conn.close()
+
+    result = run_saturn(tmp_path, "query", "Saturn")
+    assert result.returncode == 0
+    assert "No matching facts found" in result.stdout
+
+
+def test_query_include_archived_flag(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    run_saturn(tmp_path, "facts", "add", "--subject", "Saturn", "--predicate", "is", "--object", "planet")
+
+    conn = sqlite3.connect(tmp_path / ".saturn" / "saturn.db")
+    fact_id = conn.execute("SELECT id FROM facts WHERE subject = 'Saturn'").fetchone()[0]
+    conn.execute("UPDATE facts SET status = 'archived' WHERE id = ?", (fact_id,))
+    conn.commit()
+    conn.close()
+
+    result = run_saturn(tmp_path, "query", "Saturn", "--include-archived")
+    assert result.returncode == 0
+    assert "Saturn | is | planet" in result.stdout
