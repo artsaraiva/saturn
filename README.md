@@ -1,8 +1,27 @@
-![Saturn](docs/art/images/point_could_saturn_roman_god.png)
+<p align="center">
+  <img src="docs/art/images/point_could_saturn_roman_god.png" alt="Saturn" width="100%">
+</p>
+
+<h1 align="center">Saturn</h1>
 
 <p align="center">
   <strong>Memory quality OS for agents and teams.</strong><br>
   Harvest signal, weed noise. Memory that stays true over time.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License: MIT"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Python-3.11+-blue?style=flat" alt="Python 3.11+"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Storage-SQLite-lightgrey?style=flat" alt="Storage: SQLite"></a>
+</p>
+
+<p align="center">
+  <a href="#what-is-saturn">What</a> •
+  <a href="#features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#all-commands">Commands</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#license">License</a>
 </p>
 
 ---
@@ -13,98 +32,61 @@ Saturn is a **memory quality engine + living wiki + graph layer** that sits behi
 
 The problem: today's memory systems (vector DBs, chat histories) degrade over weeks. Duplicates accumulate, outdated facts persist, contradictions go unnoticed. Saturn actively maintains a clean, queryable knowledge base that improves with age.
 
-## Core Capabilities
+## Features
 
-- **Structured facts** — Store (subject, predicate, object) triples with confidence and source tracking
-- **Bulk ingestion** — Import facts from CSV, TSV, JSON, or plain text files
-- **Revision tracking** — Every mutation creates an immutable audit trail
-- **Contradiction detection** — Same subject + same predicate + different object = flagged automatically
-- **Contradiction resolution** — Keep A, keep B, merge, dismiss, or defer
-- **Workspace health** — Schema validation, database integrity checks, status reporting
+| Feature | Description |
+|---------|-------------|
+| **Structured facts** | Store (subject, predicate, object) triples with confidence and source tracking |
+| **Bulk ingestion** | Import facts from CSV, TSV, JSON, or plain text files. Preview with `--dry-run`. |
+| **Revision tracking** | Every mutation creates an immutable audit trail — who, what, when. |
+| **Contradiction detection** | Same subject + same predicate + different object = flagged automatically. |
+| **Contradiction resolution** | Five resolution actions: keep A, keep B, merge, dismiss, or defer. |
+| **Workspace health** | Schema validation, database integrity checks, status reporting via `saturn doctor`. |
+| **Zero heavy deps** | Python 3.11+ stdlib for core. SQLite for persistence. |
+| **Agent-ready** | CLI-first design. Clean JSON output suitable for MCP tool wrapping. |
 
 ## Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
 
 ### Install
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/artsaraiva/saturn.git
 cd saturn
 uv pip install -e ".[dev]"
 ```
 
-### Initialize a workspace
+Requirements: Python 3.11+, [uv](https://docs.astral.sh/uv/).
+
+### First run
 
 ```bash
-saturn init
+saturn init                           # initialize workspace
+saturn facts add -s "Saturn" -p "is" -o "a memory quality engine"
+saturn query "Saturn"                 # search your facts
+saturn doctor                         # check workspace health
 ```
 
-This creates `.saturn/config.toml`, `.saturn/saturn.db`, and `docs/superpowers/project-status.*`.
-
-### Add a fact
+### Bulk ingest
 
 ```bash
-saturn facts add --subject "Saturn" --predicate "is" --object "a memory quality engine" --source "spec" --confidence 0.9
-```
-
-### Query facts
-
-```bash
-saturn query "Saturn"
-```
-
-### Ingest from a file
-
-```bash
-# CSV
-saturn ingest data/facts.csv
-
-# JSON
-saturn ingest data/facts.json
-
-# Directory (recursive)
-saturn ingest data/
-
-# Preview without storing
-saturn ingest data/ --dry-run
+saturn ingest data/facts.csv          # CSV
+saturn ingest data/facts.json         # JSON
+saturn ingest data/                   # directory (recursive)
+saturn ingest data/ --dry-run         # preview without storing
 ```
 
 ### Detect and resolve contradictions
 
 ```bash
-# Create two contradictory facts
-saturn facts add --subject "Saturn" --predicate "is" --object "planet"
-saturn facts add --subject "Saturn" --predicate "is" --object "star"
-
-# List open contradictions
-saturn contradictions list
-
-# Keep the first fact, supersede the second
-saturn contradictions resolve <contradiction-id> --action keep_a
+saturn contradictions list            # show all open contradictions
+saturn contradictions resolve <id> --action keep_a
 ```
 
-### View revision history
+### View revisions
 
 ```bash
 saturn revisions list --entity-type fact
 saturn revisions show <revision-id>
-```
-
-### Archive a fact
-
-```bash
-saturn facts archive <fact-id>
-saturn query "Saturn" --include-archived
-```
-
-### Check workspace health
-
-```bash
-saturn doctor
 ```
 
 ## All Commands
@@ -123,40 +105,39 @@ saturn doctor
 | `saturn revisions show <id>` | View revision details |
 | `saturn doctor` | Check workspace health |
 
-## Phase 1 Status
+## Roadmap
 
-**Implemented in Phase 1:**
-
-- `saturn init`, `facts add`, `facts update`, `facts archive`
-- `saturn query` with `--include-archived`
-- `saturn doctor` with schema validation
-- `saturn ingest` (CSV, TSV, JSON, TXT)
-- `saturn contradictions list`, `saturn contradictions resolve`
-- `saturn revisions list`, `saturn revisions show`
-- Revision tracking on every mutation
-- Rule-based contradiction detection and 5 resolution actions (keep_a, keep_b, merge, dismiss, defer)
-- Schema migration from v1 to v2
-
-**Phase 2 (planned):**
-
-- REST API + MCP server for agent integration
-- Interactive shell mode (`saturn shell`)
-- Static wiki generation with backlinks
-- Graph export
-- Installable agent skills pack
+| Phase | Status | Deliverables |
+|-------|--------|-------------|
+| **Phase 1** | Done | `init`, `query`, `ingest`, `facts add/update/archive`, `contradictions list/resolve`, `revisions list/show`, `doctor`, schema v1→v2 migration, 5 contradiction resolution actions |
+| **Phase 2** | Planned | REST API + MCP server, `saturn shell`, static wiki generation with backlinks, graph export, installable agent skills pack |
 
 ## Architecture
 
 ```
-CLI → config → db → facts → SQLite
-                → revisions → SQLite
-                → contradictions → SQLite
-     → ingest → parser (CSV/TSV/JSON/TXT) → facts
-     → doctor → schema validation → status docs
+cli/
+  commands/         init, facts, ingest, query, contradictions, revisions, doctor
+core/
+  database.py       SQLite connection + schema
+  models.py         Fact, Revision, Contradiction data classes
+  config.py         .saturn/config.toml reader
+  ingest.py         CSV/TSV/JSON/TXT parser pipeline
+  contradictions.py Detection + resolution logic
+  doctor.py         Schema validation + health checks
 ```
 
-Built with Python 3.11+ and the standard library. No external dependencies for core functionality.
+Built with Python 3.11+ and the standard library. No external dependencies for core functionality. SQLite for persistence.
+
+## Star History
+
+<a href="https://star-history.com/#artsaraiva/saturn&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=artsaraiva/saturn&type=Date&theme=dark">
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=artsaraiva/saturn&type=Date">
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=artsaraiva/saturn&type=Date">
+  </picture>
+</a>
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
