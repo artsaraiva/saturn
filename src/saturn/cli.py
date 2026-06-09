@@ -19,7 +19,13 @@ from saturn.db import (
     require_initialized_database,
 )
 from saturn.doctor import bootstrap_project_status_docs, run_doctor
-from saturn.facts import build_fact_input, insert_fact, search_facts
+from saturn.facts import (
+    archive_fact,
+    build_fact_input,
+    insert_fact,
+    search_facts,
+    update_fact,
+)
 from saturn.ingest import IngestResult, run_ingest
 
 
@@ -37,6 +43,17 @@ def build_parser() -> argparse.ArgumentParser:
     facts_add_parser.add_argument("--object", dest="object_", required=True)
     facts_add_parser.add_argument("--source")
     facts_add_parser.add_argument("--confidence", type=float)
+
+    facts_update_parser = facts_subparsers.add_parser("update")
+    facts_update_parser.add_argument("fact_id")
+    facts_update_parser.add_argument("--subject")
+    facts_update_parser.add_argument("--predicate")
+    facts_update_parser.add_argument("--object", dest="object_")
+    facts_update_parser.add_argument("--source")
+    facts_update_parser.add_argument("--confidence", type=float)
+
+    facts_archive_parser = facts_subparsers.add_parser("archive")
+    facts_archive_parser.add_argument("fact_id")
 
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("terms")
@@ -79,6 +96,26 @@ def handle_facts_add(args: argparse.Namespace) -> int:
     with connect(config.db_path) as connection:
         fact_id = insert_fact(connection, fact)
     print(f"Stored fact {fact_id}")
+    return 0
+
+
+def handle_facts_update(args: argparse.Namespace) -> int:
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    with connect(config.db_path) as connection:
+        update_fact(connection, fact_id=args.fact_id, subject=args.subject,
+                     predicate=args.predicate, object_=args.object_,
+                     source=args.source, confidence=args.confidence, actor="cli")
+    print(f"Updated fact {args.fact_id}")
+    return 0
+
+
+def handle_facts_archive(args: argparse.Namespace) -> int:
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    with connect(config.db_path) as connection:
+        archive_fact(connection, fact_id=args.fact_id, actor="cli")
+    print(f"Archived fact {args.fact_id}")
     return 0
 
 
@@ -146,8 +183,13 @@ def main(argv: list[str] | None = None) -> int:
         args = parser.parse_args(argv)
         if args.command == "init":
             return handle_init()
-        if args.command == "facts" and args.facts_command == "add":
-            return handle_facts_add(args)
+        if args.command == "facts":
+            if args.facts_command == "add":
+                return handle_facts_add(args)
+            if args.facts_command == "update":
+                return handle_facts_update(args)
+            if args.facts_command == "archive":
+                return handle_facts_archive(args)
         if args.command == "query":
             return handle_query(args)
         if args.command == "doctor":
