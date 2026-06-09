@@ -68,6 +68,17 @@ def build_parser() -> argparse.ArgumentParser:
     ingest_parser.add_argument("--verbose", action="store_true", help="Show per-fact details")
     ingest_parser.add_argument("--format", choices=["csv", "tsv", "json", "txt"],
                                 help="Force input format (default: auto-detect by extension)")
+
+    contradictions_parser = subparsers.add_parser("contradictions")
+    contradictions_subparsers = contradictions_parser.add_subparsers(dest="contradictions_command", required=True)
+
+    contradictions_list_parser = contradictions_subparsers.add_parser("list")
+    contradictions_list_parser.add_argument("--all", action="store_true")
+
+    contradictions_resolve_parser = contradictions_subparsers.add_parser("resolve")
+    contradictions_resolve_parser.add_argument("contradiction_id")
+    contradictions_resolve_parser.add_argument("--action", required=True, choices=["keep_a", "keep_b", "merge", "dismiss", "defer"])
+    contradictions_resolve_parser.add_argument("--object", dest="merged_object")
     return parser
 
 
@@ -177,6 +188,37 @@ def handle_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_contradictions_list(args: argparse.Namespace) -> int:
+    from saturn.contradictions import list_contradictions
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    with connect(config.db_path) as connection:
+        state = None if args.all else "open"
+        contradictions = list_contradictions(connection, state=state)
+    if not contradictions:
+        print("No contradictions found.")
+        return 0
+    print(f"{'ID':<8} | {'Fact A':<30} | {'Fact B':<30} | {'State':<10} | Created")
+    print("-" * 100)
+    for c in contradictions:
+        fa = f"{c['fact_a_subject']} | {c['fact_a_predicate']} | {c['fact_a_object']}"
+        fb = f"{c['fact_b_subject']} | {c['fact_b_predicate']} | {c['fact_b_object']}"
+        if len(fa) > 28: fa = fa[:25] + "..."
+        if len(fb) > 28: fb = fb[:25] + "..."
+        print(f"{c['id'][:8]:<8} | {fa:<30} | {fb:<30} | {c['state']:<10} | {c['resolved_at'] or 'N/A'}")
+    return 0
+
+def handle_contradictions_resolve(args: argparse.Namespace) -> int:
+    from saturn.contradictions import resolve_contradiction
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    with connect(config.db_path) as connection:
+        resolve_contradiction(connection, contradiction_id=args.contradiction_id,
+                              action=args.action, merged_object=args.merged_object, actor="cli")
+    print(f"Resolved contradiction {args.contradiction_id} with action: {args.action}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -196,6 +238,11 @@ def main(argv: list[str] | None = None) -> int:
             return handle_doctor()
         if args.command == "ingest":
             return handle_ingest(args)
+        if args.command == "contradictions":
+            if args.contradictions_command == "list":
+                return handle_contradictions_list(args)
+            if args.contradictions_command == "resolve":
+                return handle_contradictions_resolve(args)
         return 0
     except WorkspaceNotInitializedError as error:
         print(str(error))
