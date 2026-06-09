@@ -50,11 +50,14 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - `saturn wiki serve`
   - `saturn export graph`
   - `saturn maintain run`
+  - `saturn merge suggest`
+  - `saturn merge show`
+  - `saturn merge apply`
+  - `saturn merge reject`
   - `saturn_sdk` Python client
   - agent skills pack (Hermes + OpenCode)
 - Not-started slices:
   - Phase 2: desktop app
-  - Phase 2: contradiction inbox and merge review UI
   - Phase 2: provenance timeline
   - Phase 2: policy engine
   - Phase 2: graph visualization UI
@@ -83,6 +86,7 @@ def refresh_project_status_docs(project_root: Path) -> None:
             "saturn wiki build/serve",
             "saturn export graph",
             "saturn maintain run",
+            "saturn merge suggest/show/apply/reject",
             "saturn_sdk Python client",
             "agent skills pack",
         ],
