@@ -100,3 +100,113 @@ def list_contradictions(
     params.append(limit)
 
     return connection.execute(query, params).fetchall()
+
+
+VALID_ACTIONS = ("keep_a", "keep_b", "merge", "dismiss", "defer")
+
+
+def resolve_contradiction(
+    connection: sqlite3.Connection,
+    contradiction_id: str,
+    action: str,
+    merged_object: str | None = None,
+    actor: str = "cli",
+) -> None:
+    from saturn.revisions import insert_revision
+    from saturn.facts import build_fact_input, insert_fact
+
+    if action not in VALID_ACTIONS:
+        raise ValueError(
+            f"Invalid action: {action}. Valid: {', '.join(VALID_ACTIONS)}"
+        )
+
+    row = connection.execute(
+        "SELECT * FROM contradictions WHERE id = ?", (contradiction_id,)
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"Contradiction not found: {contradiction_id}")
+    if row["state"] != "open":
+        raise ValueError("Contradiction is already resolved or dismissed")
+
+    if action == "merge" and merged_object is None:
+        raise ValueError("Merge action requires merged_object parameter")
+
+    fact_a = connection.execute(
+        "SELECT * FROM facts WHERE id = ?", (row["fact_a_id"],)
+    ).fetchone()
+    fact_b = connection.execute(
+        "SELECT * FROM facts WHERE id = ?", (row["fact_b_id"],)
+    ).fetchone()
+
+    now = datetime.now(UTC).isoformat()
+
+    if action == "defer":
+        return
+
+    if action == "keep_a":
+        connection.execute(
+            "UPDATE facts SET status = 'active', updated_at = ? WHERE id = ?",
+            (now, fact_a["id"]),
+        )
+        connection.execute(
+            "UPDATE facts SET status = 'superseded', updated_at = ? WHERE id = ?",
+            (now, fact_b["id"]),
+        )
+        insert_revision(connection, "fact", fact_b["id"], "superseded",
+                        {"status": fact_b["status"]}, {"status": "superseded"}, actor)
+        new_state = "resolved"
+
+    elif action == "keep_b":
+        connection.execute(
+            "UPDATE facts SET status = 'superseded', updated_at = ? WHERE id = ?",
+            (now, fact_a["id"]),
+        )
+        connection.execute(
+            "UPDATE facts SET status = 'active', updated_at = ? WHERE id = ?",
+            (now, fact_b["id"]),
+        )
+        insert_revision(connection, "fact", fact_a["id"], "superseded",
+                        {"status": fact_a["status"]}, {"status": "superseded"}, actor)
+        new_state = "resolved"
+
+    elif action == "merge":
+        connection.execute(
+            "UPDATE facts SET status = 'superseded', updated_at = ? WHERE id = ?",
+            (now, fact_a["id"]),
+        )
+        connection.execute(
+            "UPDATE facts SET status = 'superseded', updated_at = ? WHERE id = ?",
+            (now, fact_b["id"]),
+        )
+        insert_revision(connection, "fact", fact_a["id"], "superseded",
+                        {"status": fact_a["status"]}, {"status": "superseded"}, actor)
+        insert_revision(connection, "fact", fact_b["id"], "superseded",
+                        {"status": fact_b["status"]}, {"status": "superseded"}, actor)
+        new_fact = build_fact_input(
+            fact_a["subject"], fact_a["predicate"], merged_object,
+            fact_a["source"], fact_a["confidence"],
+        )
+        insert_fact(connection, new_fact)
+        new_state = "resolved"
+
+    elif action == "dismiss":
+        connection.execute(
+            "UPDATE facts SET status = 'active', updated_at = ? WHERE id = ?",
+            (now, fact_a["id"]),
+        )
+        connection.execute(
+            "UPDATE facts SET status = 'active', updated_at = ? WHERE id = ?",
+            (now, fact_b["id"]),
+        )
+        new_state = "dismissed"
+
+    connection.execute(
+        "UPDATE contradictions SET state = ?, resolved_at = ? WHERE id = ?",
+        (new_state, now, contradiction_id),
+    )
+    insert_revision(
+        connection, "contradiction", contradiction_id,
+        "resolved" if new_state == "resolved" else "dismissed",
+        {"state": "open"}, {"state": new_state}, actor,
+    )
+    connection.commit()

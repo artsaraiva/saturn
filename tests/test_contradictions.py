@@ -1,7 +1,8 @@
 import sqlite3
 from saturn.db import connect
 from saturn.facts import build_fact_input, insert_fact
-from saturn.contradictions import detect_contradictions, list_contradictions
+from saturn.contradictions import detect_contradictions, list_contradictions, resolve_contradiction
+from saturn.revisions import list_revisions
 
 
 def test_detect_contradiction_on_insert(run_saturn, tmp_path):
