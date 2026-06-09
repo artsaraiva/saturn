@@ -105,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     revisions_show_parser = revisions_subparsers.add_parser("show")
     revisions_show_parser.add_argument("revision_id")
 
+    export_parser = subparsers.add_parser("export")
+    export_sub = export_parser.add_subparsers(dest="export_command", required=True)
+    graph_parser = export_sub.add_parser("graph")
+    graph_parser.add_argument("--format", choices=["json", "dot"], default="json")
+    graph_parser.add_argument("--output", "-o", help="Output file path (default: stdout)")
+
     wiki_parser = subparsers.add_parser("wiki")
     wiki_sub = wiki_parser.add_subparsers(dest="wiki_command", required=True)
     wiki_build_parser = wiki_sub.add_parser("build")
@@ -289,6 +295,23 @@ def handle_shell() -> int:
     return run_shell(Path.cwd())
 
 
+def handle_export(args: argparse.Namespace) -> int:
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    from saturn.export.graph import export_json, export_dot
+    if args.export_command == "graph":
+        if args.format == "json":
+            output = export_json(config)
+        else:
+            output = export_dot(config)
+        if args.output:
+            Path(args.output).write_text(output, encoding="utf-8")
+            print(f"Exported to {args.output}")
+        else:
+            print(output)
+    return 0
+
+
 def handle_wiki(args: argparse.Namespace) -> int:
     from saturn.wiki.builder import build_wiki, serve_wiki
     config = require_config(Path.cwd())
@@ -361,6 +384,8 @@ def main(argv: list[str] | None = None) -> int:
             return handle_daemon(args)
         if args.command == "shell":
             return handle_shell()
+        if args.command == "export":
+            return handle_export(args)
         if args.command == "wiki":
             return handle_wiki(args)
         return 0
