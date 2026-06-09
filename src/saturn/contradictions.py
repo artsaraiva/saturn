@@ -201,8 +201,8 @@ def resolve_contradiction(
         new_state = "dismissed"
 
     connection.execute(
-        "UPDATE contradictions SET state = ?, resolved_at = ? WHERE id = ?",
-        (new_state, now, contradiction_id),
+        "UPDATE contradictions SET state = ?, resolved_at = ?, resolution_type = ? WHERE id = ?",
+        (new_state, now, action, contradiction_id),
     )
     insert_revision(
         connection, "contradiction", contradiction_id,
