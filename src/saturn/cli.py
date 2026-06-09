@@ -125,7 +125,7 @@ def handle_facts_update(args: argparse.Namespace) -> int:
     require_initialized_database(config.db_path, config.schema_version)
     with connect(config.db_path) as connection:
         update_fact(connection, fact_id=args.fact_id, subject=args.subject,
-                     predicate=args.predicate, object_=args.object_,
+                     predicate=args.predicate, object=args.object_,
                      source=args.source, confidence=args.confidence, actor="cli")
     print(f"Updated fact {args.fact_id}")
     return 0
@@ -215,7 +215,7 @@ def handle_contradictions_list(args: argparse.Namespace) -> int:
         fb = f"{c['fact_b_subject']} | {c['fact_b_predicate']} | {c['fact_b_object']}"
         if len(fa) > 28: fa = fa[:25] + "..."
         if len(fb) > 28: fb = fb[:25] + "..."
-        print(f"{c['id'][:8]:<8} | {fa:<30} | {fb:<30} | {c['state']:<10} | {c['resolved_at'] or 'N/A'}")
+        print(f"{c['id']} | {fa:<30} | {fb:<30} | {c['state']:<10} | {c['resolved_at'] or 'N/A'}")
     return 0
 
 def handle_contradictions_resolve(args: argparse.Namespace) -> int:
@@ -239,10 +239,11 @@ def handle_revisions_list(args: argparse.Namespace) -> int:
     if not revisions:
         print("No revisions found.")
         return 0
+
     print(f"{'ID':<8} | {'Entity Type':<15} | {'Entity ID':<8} | {'Change Type':<12} | {'Actor':<10} | Timestamp")
     print("-" * 90)
     for r in revisions:
-        print(f"{r['id'][:8]:<8} | {r['entity_type']:<15} | {r['entity_id'][:8]:<8} | {r['change_type']:<12} | {r['actor']:<10} | {r['timestamp']}")
+        print(f"{r['id']} | {r['entity_type']:<15} | {r['entity_id'][:8]:<8} | {r['change_type']:<12} | {r['actor']:<10} | {r['timestamp']}")
     return 0
 
 
