@@ -104,6 +104,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     revisions_show_parser = revisions_subparsers.add_parser("show")
     revisions_show_parser.add_argument("revision_id")
+
+    wiki_parser = subparsers.add_parser("wiki")
+    wiki_sub = wiki_parser.add_subparsers(dest="wiki_command", required=True)
+    wiki_build_parser = wiki_sub.add_parser("build")
+    wiki_build_parser.add_argument("--out", help="Output directory for wiki files")
+    wiki_serve_parser = wiki_sub.add_parser("serve")
+    wiki_serve_parser.add_argument("--port", type=int, default=8080)
+
     return parser
 
 
@@ -281,6 +289,19 @@ def handle_shell() -> int:
     return run_shell(Path.cwd())
 
 
+def handle_wiki(args: argparse.Namespace) -> int:
+    from saturn.wiki.builder import build_wiki, serve_wiki
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    if args.wiki_command == "build":
+        wiki_dir = Path(args.out) if args.out else None
+        out = build_wiki(config, wiki_dir)
+        print(f"Wiki generated at {out}")
+    elif args.wiki_command == "serve":
+        serve_wiki(config, port=args.port)
+    return 0
+
+
 def handle_revisions_show(args: argparse.Namespace) -> int:
     import json
     from saturn.revisions import get_revision
@@ -340,6 +361,8 @@ def main(argv: list[str] | None = None) -> int:
             return handle_daemon(args)
         if args.command == "shell":
             return handle_shell()
+        if args.command == "wiki":
+            return handle_wiki(args)
         return 0
     except WorkspaceNotInitializedError as error:
         print(str(error))
