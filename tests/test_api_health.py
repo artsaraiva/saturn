@@ -1,5 +1,3 @@
-import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -12,10 +10,9 @@ from saturn.db import initialize_database
 @pytest.mark.asyncio
 async def test_health_ok(tmp_path):
     _init_workspace(tmp_path)
-    os.chdir(tmp_path)
 
     from saturn.daemon.app import create_app
-    app = create_app()
+    app = create_app(tmp_path)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/health")
@@ -28,9 +25,8 @@ async def test_health_ok(tmp_path):
 
 @pytest.mark.asyncio
 async def test_health_not_initialized(tmp_path):
-    os.chdir(tmp_path)
     from saturn.daemon.app import create_app
-    app = create_app()
+    app = create_app(tmp_path)
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         resp = await client.get("/api/health")
