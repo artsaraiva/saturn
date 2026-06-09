@@ -55,6 +55,19 @@ def build_parser() -> argparse.ArgumentParser:
     facts_archive_parser = facts_subparsers.add_parser("archive")
     facts_archive_parser.add_argument("fact_id")
 
+    daemon_parser = subparsers.add_parser("daemon")
+    daemon_subparsers = daemon_parser.add_subparsers(dest="daemon_command", required=True)
+
+    daemon_start = daemon_subparsers.add_parser("start")
+    daemon_start.add_argument("--host", default="127.0.0.1")
+    daemon_start.add_argument("--port", type=int, default=8468)
+
+    daemon_subparsers.add_parser("stop")
+    daemon_subparsers.add_parser("status")
+
+    daemon_logs = daemon_subparsers.add_parser("logs")
+    daemon_logs.add_argument("--lines", type=int, default=50)
+
     query_parser = subparsers.add_parser("query")
     query_parser.add_argument("terms")
     query_parser.add_argument("--include-archived", action="store_true")
@@ -198,6 +211,20 @@ def handle_ingest(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_daemon(args: argparse.Namespace) -> int:
+    from saturn.daemon.lifecycle import start, stop, status, logs
+    project_root = Path.cwd()
+    if args.daemon_command == "start":
+        print(start(project_root, host=args.host, port=args.port))
+    elif args.daemon_command == "stop":
+        print(stop(project_root))
+    elif args.daemon_command == "status":
+        print(status(project_root))
+    elif args.daemon_command == "logs":
+        print(logs(project_root, lines=args.lines))
+    return 0
+
+
 def handle_contradictions_list(args: argparse.Namespace) -> int:
     from saturn.contradictions import list_contradictions
     config = require_config(Path.cwd())
@@ -302,6 +329,8 @@ def main(argv: list[str] | None = None) -> int:
                 return handle_revisions_list(args)
             if args.revisions_command == "show":
                 return handle_revisions_show(args)
+        if args.command == "daemon":
+            return handle_daemon(args)
         return 0
     except WorkspaceNotInitializedError as error:
         print(str(error))
