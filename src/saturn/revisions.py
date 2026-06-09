@@ -64,6 +64,47 @@ def list_revisions(
     return connection.execute(query, params).fetchall()
 
 
+def get_timeline(
+    connection: sqlite3.Connection,
+    entity_id: str,
+    entity_type: str | None = None,
+    since: str | None = None,
+    until: str | None = None,
+    actor: str | None = None,
+    change_type: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> list[sqlite3.Row]:
+    query = "SELECT * FROM revisions WHERE entity_id = ?"
+    params: list[Any] = [entity_id]
+
+    if entity_type is not None:
+        query += " AND entity_type = ?"
+        params.append(entity_type)
+
+    if since is not None:
+        query += " AND timestamp >= ?"
+        params.append(since)
+
+    if until is not None:
+        query += " AND timestamp <= ?"
+        params.append(until)
+
+    if actor is not None:
+        query += " AND actor = ?"
+        params.append(actor)
+
+    if change_type is not None:
+        query += " AND change_type = ?"
+        params.append(change_type)
+
+    query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+    params.append(limit)
+    params.append(offset)
+
+    return connection.execute(query, params).fetchall()
+
+
 def get_revision(connection: sqlite3.Connection, revision_id: str) -> sqlite3.Row | None:
     return connection.execute(
         "SELECT * FROM revisions WHERE id = ?",

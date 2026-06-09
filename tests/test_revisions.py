@@ -93,6 +93,104 @@ def test_insert_revision_rejects_empty_entity_type(run_saturn, tmp_path):
             insert_revision(conn, "  ", "f1", "created", None, {"s": "A"}, "cli")
 
 
+def test_get_timeline_returns_ordered_revisions(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    from saturn.db import connect
+    from saturn.revisions import insert_revision, get_timeline
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        insert_revision(conn, "fact", "f1", "created", None, {"s": "A"}, "cli")
+        insert_revision(conn, "fact", "f1", "updated", {"s": "A"}, {"s": "B"}, "cli")
+
+        timeline = get_timeline(conn, entity_id="f1")
+        assert len(timeline) == 2
+        assert timeline[0]["change_type"] == "updated"
+
+
+def test_get_timeline_filters_by_actor(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    from saturn.db import connect
+    from saturn.revisions import insert_revision, get_timeline
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        insert_revision(conn, "fact", "f1", "created", None, {"s": "A"}, "cli")
+        insert_revision(conn, "fact", "f1", "updated", {"s": "A"}, {"s": "B"}, "maintain")
+
+        timeline = get_timeline(conn, entity_id="f1", actor="cli")
+        assert len(timeline) == 1
+        assert timeline[0]["actor"] == "cli"
+
+
+def test_get_timeline_filters_by_change_type(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    from saturn.db import connect
+    from saturn.revisions import insert_revision, get_timeline
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        insert_revision(conn, "fact", "f1", "created", None, {"s": "A"}, "cli")
+        insert_revision(conn, "fact", "f1", "updated", {"s": "A"}, {"s": "B"}, "cli")
+
+        timeline = get_timeline(conn, entity_id="f1", change_type="created")
+        assert len(timeline) == 1
+        assert timeline[0]["change_type"] == "created"
+
+
+def test_get_timeline_filters_by_date_range(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    from saturn.db import connect
+    from saturn.revisions import get_timeline
+    from datetime import UTC, datetime, timedelta
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        import uuid
+        now = datetime.now(UTC)
+        rid1 = str(uuid.uuid4())
+        rid2 = str(uuid.uuid4())
+        conn.execute(
+            "INSERT INTO revisions (id, entity_type, entity_id, change_type, before, after, actor, timestamp) "
+            "VALUES (?, 'fact', 'f1', 'created', NULL, '{}', 'cli', ?)",
+            (rid1, (now - timedelta(days=10)).isoformat()),
+        )
+        conn.execute(
+            "INSERT INTO revisions (id, entity_type, entity_id, change_type, before, after, actor, timestamp) "
+            "VALUES (?, 'fact', 'f1', 'updated', '{}', '{}', 'cli', ?)",
+            (rid2, (now - timedelta(days=1)).isoformat()),
+        )
+        conn.commit()
+
+        since = (now - timedelta(days=5)).isoformat()
+        timeline = get_timeline(conn, entity_id="f1", since=since)
+        assert len(timeline) == 1
+        assert timeline[0]["change_type"] == "updated"
+
+
+def test_get_timeline_pagination(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    from saturn.db import connect
+    from saturn.revisions import insert_revision, get_timeline
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        for i in range(5):
+            insert_revision(conn, "fact", "f1", "created", None, {"s": str(i)}, "cli")
+
+        page1 = get_timeline(conn, entity_id="f1", limit=2, offset=0)
+        assert len(page1) == 2
+
+        page2 = get_timeline(conn, entity_id="f1", limit=2, offset=2)
+        assert len(page2) == 2
+        assert page1[0]["id"] != page2[0]["id"]
+
+
+def test_get_timeline_empty_for_nonexistent_entity(run_saturn, tmp_path):
+    run_saturn(tmp_path, "init")
+    from saturn.db import connect
+    from saturn.revisions import get_timeline
+
+    with connect(tmp_path / ".saturn" / "saturn.db") as conn:
+        timeline = get_timeline(conn, entity_id="nonexistent")
+        assert len(timeline) == 0
+
+
 def test_insert_fact_creates_revision(run_saturn, tmp_path):
     run_saturn(tmp_path, "init")
 
