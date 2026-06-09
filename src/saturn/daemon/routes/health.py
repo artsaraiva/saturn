@@ -3,9 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import APIRouter, Request
-from saturn.config import WorkspaceNotInitializedError, load_config, resolve_workspace
+from saturn.config import WorkspaceNotInitializedError, load_config
 from saturn.db import InvalidDatabaseError, connect, read_schema_version
-from saturn.doctor import run_doctor
 
 router = APIRouter(tags=["health"])
 
