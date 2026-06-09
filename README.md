@@ -104,13 +104,16 @@ saturn daemon stop             # graceful shutdown
 
 ### MCP server (for AI agents)
 
-Configure your AI tool to use `saturn-mcp` as an MCP server command. Example for OpenCode:
+Configure your AI tool to use `saturn-mcp` as an MCP server command. Example for OpenCode (the older `mcpServers` format shown below is NOT supported — use the `mcp` format instead):
 
 ```json
 {
-  "mcpServers": {
+  "mcp": {
     "saturn": {
-      "command": "saturn-mcp"
+      "type": "local",
+      "enabled": true,
+      "timeout": 15000,
+      "command": ["/path/to/venv/bin/saturn-mcp"]
     }
   }
 }
