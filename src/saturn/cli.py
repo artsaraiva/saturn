@@ -72,6 +72,8 @@ def build_parser() -> argparse.ArgumentParser:
     query_parser.add_argument("terms")
     query_parser.add_argument("--include-archived", action="store_true")
 
+    subparsers.add_parser("shell")
+
     subparsers.add_parser("doctor")
 
     ingest_parser = subparsers.add_parser("ingest")
@@ -274,6 +276,11 @@ def handle_revisions_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_shell() -> int:
+    from saturn.shell.app import run_shell
+    return run_shell(Path.cwd())
+
+
 def handle_revisions_show(args: argparse.Namespace) -> int:
     import json
     from saturn.revisions import get_revision
@@ -331,6 +338,8 @@ def main(argv: list[str] | None = None) -> int:
                 return handle_revisions_show(args)
         if args.command == "daemon":
             return handle_daemon(args)
+        if args.command == "shell":
+            return handle_shell()
         return 0
     except WorkspaceNotInitializedError as error:
         print(str(error))
