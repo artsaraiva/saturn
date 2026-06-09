@@ -105,6 +105,12 @@ def build_parser() -> argparse.ArgumentParser:
     revisions_show_parser = revisions_subparsers.add_parser("show")
     revisions_show_parser.add_argument("revision_id")
 
+    maintain_parser = subparsers.add_parser("maintain")
+    maintain_sub = maintain_parser.add_subparsers(dest="maintain_command", required=True)
+    run_parser = maintain_sub.add_parser("run")
+    run_parser.add_argument("--dry-run", action="store_true", help="Preview changes without writing")
+    run_parser.add_argument("--archive-days", type=int, default=90, help="Archive facts older than N days (default: 90)")
+
     export_parser = subparsers.add_parser("export")
     export_sub = export_parser.add_subparsers(dest="export_command", required=True)
     graph_parser = export_sub.add_parser("graph")
@@ -295,6 +301,20 @@ def handle_shell() -> int:
     return run_shell(Path.cwd())
 
 
+def handle_maintain(args: argparse.Namespace) -> int:
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    from saturn.maintain import run_maintenance
+    if args.maintain_command == "run":
+        stats = run_maintenance(config, dry_run=args.dry_run, archive_days=args.archive_days)
+        print(f"Maintenance complete:")
+        print(f"  Contradictions found: {stats['contradictions_found']}")
+        print(f"  Archived: {stats['archived']}")
+        if stats['errors']:
+            print(f"  Errors: {stats['errors']}")
+    return 0
+
+
 def handle_export(args: argparse.Namespace) -> int:
     config = require_config(Path.cwd())
     require_initialized_database(config.db_path, config.schema_version)
@@ -384,6 +404,8 @@ def main(argv: list[str] | None = None) -> int:
             return handle_daemon(args)
         if args.command == "shell":
             return handle_shell()
+        if args.command == "maintain":
+            return handle_maintain(args)
         if args.command == "export":
             return handle_export(args)
         if args.command == "wiki":

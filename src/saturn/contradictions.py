@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import sqlite3
 import uuid
 from datetime import UTC, datetime
@@ -100,6 +101,44 @@ def list_contradictions(
     params.append(limit)
 
     return connection.execute(query, params).fetchall()
+
+
+def detect_all_contradictions(connection: sqlite3.Connection) -> int:
+    """Scan all active facts and detect contradictions. Returns count of new contradictions found."""
+    count = 0
+    rows = connection.execute(
+        "SELECT * FROM facts WHERE status = 'active'"
+    ).fetchall()
+
+    groups = defaultdict(list)
+    for r in rows:
+        groups[(r["subject"], r["predicate"])].append(dict(r))
+
+    for (subject, predicate), facts in groups.items():
+        if len(facts) < 2:
+            continue
+        for i in range(len(facts)):
+            for j in range(i + 1, len(facts)):
+                a, b = facts[i], facts[j]
+                if a["object"] == b["object"]:
+                    continue
+                existing = connection.execute(
+                    "SELECT id FROM contradictions WHERE "
+                    "(fact_a_id = ? AND fact_b_id = ? OR fact_a_id = ? AND fact_b_id = ?) "
+                    "AND state = 'open'",
+                    (a["id"], b["id"], b["id"], a["id"]),
+                ).fetchone()
+                if existing:
+                    continue
+                insert_contradiction(
+                    connection,
+                    fact_a_id=a["id"],
+                    fact_b_id=b["id"],
+                    reason=f"Same subject+predicate, different object",
+                    score=0.7,
+                )
+                count += 1
+    return count
 
 
 VALID_ACTIONS = ("keep_a", "keep_b", "merge", "dismiss", "defer")
