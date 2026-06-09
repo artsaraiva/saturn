@@ -26,8 +26,8 @@ def refresh_project_status_docs(project_root: Path) -> None:
 
     markdown = """# Saturn Project Status
 
-- Current phase: Phase 1
-- Active milestone: CLI-first prototype
+- Current phase: Phase 2
+- Active milestone: Daemon + MCP server
 - Implemented slices:
   - `saturn init`
   - `saturn facts add`
@@ -40,40 +40,38 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - `saturn contradictions resolve`
   - `saturn revisions list`
   - `saturn revisions show`
+  - `saturn daemon start`
+  - `saturn daemon stop`
+  - `saturn daemon status`
+  - `saturn daemon logs`
+  - `saturn-mcp` MCP server
 - Not-started slices:
-  - daemon and MCP interfaces
   - wiki projection and graph export
 - Blockers: none
-- Open decisions: none for this slice
 - Recommended next tasks:
-  - implement daemon and MCP interfaces
   - implement wiki projection and graph export
 """
 
     payload = {
-        "current_phase": "Phase 1",
-        "active_milestone": "CLI-first prototype",
+        "current_phase": "Phase 2",
+        "active_milestone": "Daemon + MCP server",
         "implemented_slices": [
             "saturn init",
-            "saturn facts add",
-            "saturn facts update",
-            "saturn facts archive",
+            "saturn facts add/update/archive",
             "saturn query",
             "saturn doctor",
             "saturn ingest",
-            "saturn contradictions list",
-            "saturn contradictions resolve",
-            "saturn revisions list",
-            "saturn revisions show",
+            "saturn contradictions list/resolve",
+            "saturn revisions list/show",
+            "saturn daemon start/stop/status/logs",
+            "saturn-mcp MCP server",
         ],
         "not_started_slices": [
-            "daemon and MCP interfaces",
             "wiki projection and graph export",
         ],
         "blockers": [],
         "open_decisions": [],
         "recommended_next_tasks": [
-            "implement daemon and MCP interfaces",
             "implement wiki projection and graph export",
         ],
     }
