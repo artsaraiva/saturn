@@ -79,6 +79,16 @@ def build_parser() -> argparse.ArgumentParser:
     contradictions_resolve_parser.add_argument("contradiction_id")
     contradictions_resolve_parser.add_argument("--action", required=True, choices=["keep_a", "keep_b", "merge", "dismiss", "defer"])
     contradictions_resolve_parser.add_argument("--object", dest="merged_object")
+    revisions_parser = subparsers.add_parser("revisions")
+    revisions_subparsers = revisions_parser.add_subparsers(dest="revisions_command", required=True)
+
+    revisions_list_parser = revisions_subparsers.add_parser("list")
+    revisions_list_parser.add_argument("--entity-type", choices=["fact", "contradiction"])
+    revisions_list_parser.add_argument("--entity-id")
+    revisions_list_parser.add_argument("--limit", type=int, default=50)
+
+    revisions_show_parser = revisions_subparsers.add_parser("show")
+    revisions_show_parser.add_argument("revision_id")
     return parser
 
 
@@ -219,6 +229,49 @@ def handle_contradictions_resolve(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_revisions_list(args: argparse.Namespace) -> int:
+    from saturn.revisions import list_revisions
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    with connect(config.db_path) as connection:
+        revisions = list_revisions(connection, entity_type=args.entity_type,
+                                    entity_id=args.entity_id, limit=args.limit)
+    if not revisions:
+        print("No revisions found.")
+        return 0
+    print(f"{'ID':<8} | {'Entity Type':<15} | {'Entity ID':<8} | {'Change Type':<12} | {'Actor':<10} | Timestamp")
+    print("-" * 90)
+    for r in revisions:
+        print(f"{r['id'][:8]:<8} | {r['entity_type']:<15} | {r['entity_id'][:8]:<8} | {r['change_type']:<12} | {r['actor']:<10} | {r['timestamp']}")
+    return 0
+
+
+def handle_revisions_show(args: argparse.Namespace) -> int:
+    import json
+    from saturn.revisions import get_revision
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+    with connect(config.db_path) as connection:
+        revision = get_revision(connection, args.revision_id)
+    if revision is None:
+        print(f"Revision not found: {args.revision_id}")
+        return 1
+    print(f"Revision: {revision['id']}")
+    print(f"Entity: {revision['entity_type']} {revision['entity_id']}")
+    print(f"Change: {revision['change_type']}")
+    print(f"Actor: {revision['actor']}")
+    print(f"Timestamp: {revision['timestamp']}")
+    print()
+    if revision['before'] is not None:
+        print("Before:")
+        print(json.dumps(json.loads(revision['before']), indent=2))
+        print()
+    if revision['after'] is not None:
+        print("After:")
+        print(json.dumps(json.loads(revision['after']), indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -243,6 +296,11 @@ def main(argv: list[str] | None = None) -> int:
                 return handle_contradictions_list(args)
             if args.contradictions_command == "resolve":
                 return handle_contradictions_resolve(args)
+        if args.command == "revisions":
+            if args.revisions_command == "list":
+                return handle_revisions_list(args)
+            if args.revisions_command == "show":
+                return handle_revisions_show(args)
         return 0
     except WorkspaceNotInitializedError as error:
         print(str(error))
