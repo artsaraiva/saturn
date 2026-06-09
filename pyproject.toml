@@ -7,10 +7,12 @@ name = "saturn"
 version = "0.1.0"
 description = "Saturn CLI-first prototype"
 requires-python = ">=3.11"
-dependencies = ["fastapi", "uvicorn[standard]", "mcp", "prompt_toolkit", "rich"]
+dependencies = ["fastapi", "uvicorn[standard]", "mcp", "prompt_toolkit", "rich", "httpx"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "httpx", "pytest-asyncio"]
+sdk = ["httpx"]
+all = ["saturn[sdk]"]
 
 [project.scripts]
 saturn = "saturn.cli:main"
