@@ -31,20 +31,23 @@ def refresh_project_status_docs(project_root: Path) -> None:
 - Implemented slices:
   - `saturn init`
   - `saturn facts add`
+  - `saturn facts update`
+  - `saturn facts archive`
   - `saturn query`
   - `saturn doctor`
-  - bulk ingestion
+  - `saturn ingest`
+  - `saturn contradictions list`
+  - `saturn contradictions resolve`
+  - `saturn revisions list`
+  - `saturn revisions show`
 - Not-started slices:
-  - revisions and richer fact metadata
-  - deduplication and contradiction records
   - daemon and MCP interfaces
   - wiki projection and graph export
 - Blockers: none
 - Open decisions: none for this slice
 - Recommended next tasks:
-  - add bulk ingestion from files
-  - add revisions table
-  - add contradiction workflows
+  - implement daemon and MCP interfaces
+  - implement wiki projection and graph export
 """
 
     payload = {
@@ -53,21 +56,25 @@ def refresh_project_status_docs(project_root: Path) -> None:
         "implemented_slices": [
             "saturn init",
             "saturn facts add",
+            "saturn facts update",
+            "saturn facts archive",
             "saturn query",
             "saturn doctor",
-            "bulk ingestion",
+            "saturn ingest",
+            "saturn contradictions list",
+            "saturn contradictions resolve",
+            "saturn revisions list",
+            "saturn revisions show",
         ],
         "not_started_slices": [
-            "revisions and richer fact metadata",
-            "deduplication and contradiction records",
             "daemon and MCP interfaces",
             "wiki projection and graph export",
         ],
         "blockers": [],
         "open_decisions": [],
         "recommended_next_tasks": [
-            "add revisions table",
-            "add contradiction workflows",
+            "implement daemon and MCP interfaces",
+            "implement wiki projection and graph export",
         ],
     }
 
