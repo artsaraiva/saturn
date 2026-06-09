@@ -5,7 +5,7 @@ from pathlib import Path
 import tomllib
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 class WorkspaceNotInitializedError(RuntimeError):
@@ -31,7 +31,7 @@ def resolve_workspace(project_root: Path) -> WorkspaceConfig:
 def write_default_config(config: WorkspaceConfig) -> None:
     config.workspace_dir.mkdir(parents=True, exist_ok=True)
     config.config_path.write_text(
-        'schema_version = 2\n'
+        'schema_version = 3\n'
         'db_path = ".saturn/saturn.db"\n'
         'project_root = "."\n',
         encoding="utf-8",

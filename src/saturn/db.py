@@ -51,6 +51,16 @@ CREATE TABLE IF NOT EXISTS contradictions (
   resolved_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS merge_groups (
+  id TEXT PRIMARY KEY,
+  member_fact_ids TEXT NOT NULL,
+  canonical_fact_id TEXT,
+  merge_strategy TEXT,
+  approved_by TEXT,
+  approved_at TEXT,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS schema_meta (
   version INTEGER NOT NULL,
   applied_at TEXT NOT NULL
@@ -100,6 +110,22 @@ def migrate_v1_to_v2(connection: sqlite3.Connection) -> None:
     connection.commit()
 
 
+def migrate_v2_to_v3(connection: sqlite3.Connection) -> None:
+    connection.executescript("""
+        CREATE TABLE IF NOT EXISTS merge_groups (
+          id TEXT PRIMARY KEY,
+          member_fact_ids TEXT NOT NULL,
+          canonical_fact_id TEXT,
+          merge_strategy TEXT,
+          approved_by TEXT,
+          approved_at TEXT,
+          created_at TEXT NOT NULL
+        )
+    """)
+    connection.execute("UPDATE schema_meta SET version = 3")
+    connection.commit()
+
+
 def initialize_database(db_path: Path, schema_version: int) -> None:
     try:
         with connect(db_path) as connection:
@@ -114,9 +140,13 @@ def initialize_database(db_path: Path, schema_version: int) -> None:
                     actual_version = connection.execute(
                         "SELECT version FROM schema_meta LIMIT 1"
                     ).fetchone()["version"]
-                    if actual_version == 1 and schema_version == 2:
+                    if actual_version == 1 and schema_version >= 2:
                         migrate_v1_to_v2(connection)
-                    elif actual_version != schema_version:
+                        actual_version = 2
+                    if actual_version == 2 and schema_version >= 3:
+                        migrate_v2_to_v3(connection)
+                        actual_version = 3
+                    if actual_version != schema_version:
                         raise ValueError(
                             "Database schema version mismatch: "
                             f"found {actual_version}, expected {schema_version}"
@@ -188,6 +218,15 @@ def verify_database_shape(connection) -> None:
             "resolution_type",
             "resolved_by",
             "resolved_at",
+        },
+        "merge_groups": {
+            "id",
+            "member_fact_ids",
+            "canonical_fact_id",
+            "merge_strategy",
+            "approved_by",
+            "approved_at",
+            "created_at",
         },
     }
     for table_name, expected_columns in required_columns.items():
