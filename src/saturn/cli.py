@@ -328,6 +328,7 @@ def handle_maintain(args: argparse.Namespace) -> int:
         print(f"Maintenance complete:")
         print(f"  Contradictions found: {stats['contradictions_found']}")
         print(f"  Archived: {stats['archived']}")
+        print(f"  Merges suggested: {stats['merges_suggested']}")
         if stats['errors']:
             print(f"  Errors: {stats['errors']}")
     return 0

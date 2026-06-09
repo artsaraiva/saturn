@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 
 from saturn.config import WorkspaceConfig
 from saturn.db import connect
+from saturn.merge import suggest_merges
 
 
 def run_maintenance(
@@ -17,7 +18,7 @@ def run_maintenance(
     Returns stats dict with keys:
         contradictions_found, archived, errors
     """
-    stats = {"contradictions_found": 0, "archived": 0, "errors": 0}
+    stats = {"contradictions_found": 0, "archived": 0, "errors": 0, "merges_suggested": 0}
 
     with connect(config.db_path) as conn:
         rows = conn.execute(
@@ -67,5 +68,13 @@ def run_maintenance(
                 from saturn.facts import archive_fact
                 archive_fact(conn, fact_id=row["id"], actor="maintain")
             stats["archived"] += 1
+
+    # 3. Merge suggestion
+    try:
+        merge_groups = suggest_merges(config, min_similarity=0.6)
+        stats["merges_suggested"] = len(merge_groups)
+    except Exception:
+        stats["merges_suggested"] = 0
+        stats["errors"] += 1
 
     return stats
