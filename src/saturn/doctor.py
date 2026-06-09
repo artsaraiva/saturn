@@ -26,8 +26,8 @@ def refresh_project_status_docs(project_root: Path) -> None:
 
     markdown = """# Saturn Project Status
 
-- Current phase: Phase 2
-- Active milestone: Daemon + MCP server
+- Current phase: Phase 1 (MVP complete)
+- Active milestone: Phase 1 MVP complete
 - Implemented slices:
   - `saturn init`
   - `saturn facts add`
@@ -53,19 +53,22 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - `saturn_sdk` Python client
   - agent skills pack (Hermes + OpenCode)
 - Not-started slices:
-  - desktop app
-  - graph visualization UI
-  - team/multi-tenant features
+  - Phase 2: desktop app
+  - Phase 2: contradiction inbox and merge review UI
+  - Phase 2: provenance timeline
+  - Phase 2: policy engine
+  - Phase 2: graph visualization UI
 - Blockers: none
 - Recommended next tasks:
   - Phase 2: desktop app
   - Phase 2: contradiction inbox and merge review UI
   - Phase 2: policy engine
+  - Phase 2: provenance timeline
 """
 
     payload = {
-        "current_phase": "Phase 2",
-        "active_milestone": "Daemon + MCP server",
+        "current_phase": "Phase 1 (MVP complete)",
+        "active_milestone": "Phase 1 MVP complete",
         "implemented_slices": [
             "saturn init",
             "saturn facts add/update/archive",
