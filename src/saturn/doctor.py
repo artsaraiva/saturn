@@ -55,10 +55,11 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - `saturn merge apply`
   - `saturn merge reject`
   - `saturn_sdk` Python client
-  - agent skills pack (Hermes + OpenCode)
+   - agent skills pack (Hermes + OpenCode)
+   - `saturn revisions timeline`
+   - enhanced `/trace-source` with filters and pagination
 - Not-started slices:
   - Phase 2: desktop app
-  - Phase 2: provenance timeline
   - Phase 2: policy engine
   - Phase 2: graph visualization UI
 - Blockers: none
@@ -66,7 +67,7 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - Phase 2: desktop app
   - Phase 2: contradiction inbox and merge review UI
   - Phase 2: policy engine
-  - Phase 2: provenance timeline
+  - Phase 2: graph visualization UI
 """
 
     payload = {
@@ -89,6 +90,8 @@ def refresh_project_status_docs(project_root: Path) -> None:
             "saturn merge suggest/show/apply/reject",
             "saturn_sdk Python client",
             "agent skills pack",
+            "saturn revisions timeline",
+            "enhanced /trace-source with filters and pagination",
         ],
         "not_started_slices": [
             "desktop app",
@@ -101,6 +104,7 @@ def refresh_project_status_docs(project_root: Path) -> None:
             "Phase 2: desktop app",
             "Phase 2: contradiction inbox and merge review UI",
             "Phase 2: policy engine",
+            "Phase 2: graph visualization UI",
         ],
     }
 
