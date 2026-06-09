@@ -66,6 +66,30 @@ class SaturnCompleter(Completer):
                     if fid.startswith(partial):
                         yield Completion(fid, start_position=(-len(partial) if partial else 0))
 
+            elif text.startswith("/merge approve ") and len(parts) >= 3:
+                partial = parts[-1] if not text.endswith(" ") else ""
+                for gid in self._get_merge_group_ids():
+                    if gid.startswith(partial):
+                        yield Completion(gid, start_position=(-len(partial) if partial else 0))
+
+            elif text.startswith("/merge reject ") and len(parts) >= 2:
+                partial = parts[-1] if not text.endswith(" ") else ""
+                for gid in self._get_merge_group_ids():
+                    if gid.startswith(partial):
+                        yield Completion(gid, start_position=(-len(partial) if partial else 0))
+
+    def _get_merge_group_ids(self) -> list[str]:
+        try:
+            config = load_config(self.workspace)
+            with connect(config.db_path) as conn:
+                rows = conn.execute(
+                    "SELECT id FROM merge_groups WHERE canonical_fact_id IS NULL AND merge_strategy IS NULL "
+                    "ORDER BY created_at DESC LIMIT 20"
+                ).fetchall()
+                return [r["id"] for r in rows]
+        except Exception:
+            return []
+
     def _get_fact_ids(self) -> list[str]:
         try:
             config = load_config(self.workspace)

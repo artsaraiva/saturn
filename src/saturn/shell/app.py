@@ -98,7 +98,7 @@ def run_shell(workspace: Path) -> int:
                     idx += 1
             handle_resolve(workspace, cid, action, merged, console)
         elif command == "merge":
-            handle_merge(workspace, console)
+            handle_merge(workspace, args, console)
         elif command == "archive":
             handle_archive(workspace, args[0] if args else "", console)
         elif command == "explain-why":

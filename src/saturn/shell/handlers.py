@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from rich.console import Console
@@ -115,36 +116,76 @@ def handle_resolve(workspace: Path, cid: str, action: str, merged_object: str | 
     console.print(render_success(f"Resolved contradiction {cid[:8]} with action: {action} (state: {state})"))
 
 
-def handle_merge(workspace: Path, console: Console) -> None:
+def handle_merge(workspace: Path, args: list[str], console: Console) -> None:
+    from saturn.merge import (
+        apply_merge,
+        get_merge_group,
+        list_merge_groups,
+        reject_merge,
+        suggest_merges,
+    )
+    from rich.table import Table
+
     try:
         config = require_config(workspace)
         require_initialized_database(config.db_path, config.schema_version)
-        with connect(config.db_path) as conn:
-            groups = conn.execute("""
-                SELECT subject, predicate, COUNT(*) as cnt
-                FROM facts
-                WHERE status IN ('active', 'disputed')
-                GROUP BY subject, predicate
-                HAVING COUNT(DISTINCT object) > 1
-                ORDER BY cnt DESC
-                LIMIT 20
-            """).fetchall()
     except WorkspaceNotInitializedError:
         console.print(render_error("Workspace not initialized. Run `saturn init` first."))
         return
 
-    if not groups:
-        console.print(render_info("No merge candidates found. All facts are consistent."))
+    if not args:
+        groups = list_merge_groups(config)
+        if not groups:
+            console.print(render_info("No pending merge candidates."))
+            return
+        table = Table(title="Merge Candidates", show_lines=True)
+        table.add_column("ID", style="dim", width=10)
+        table.add_column("Members")
+        table.add_column("Created")
+        for g in groups:
+            try:
+                members = json.loads(g["member_fact_ids"])
+            except (json.JSONDecodeError, TypeError):
+                members = []
+            table.add_row(g["id"][:8], str(len(members)), g["created_at"][:16])
+        console.print(table)
         return
 
-    for g in groups:
-        with connect(config.db_path) as conn:
-            members = conn.execute(
-                "SELECT * FROM facts WHERE subject = ? AND predicate = ? AND status IN ('active', 'disputed')",
-                (g["subject"], g["predicate"]),
-            ).fetchall()
-        console.print(render_fact_table([dict(m) for m in members]))
-        console.print(f"[cyan]Cluster: {g['subject']} {g['predicate']}[/cyan] \u2014 {g['cnt']} conflicting facts")
+    subcmd = args[0]
+
+    if subcmd == "approve" and len(args) >= 3 and args[1] == "--keep":
+        gid = args[2]
+        keep_idx = args.index("--keep") + 1
+        if keep_idx >= len(args):
+            console.print(render_error("Usage: /merge approve <group-id> --keep <fact-id>"))
+            return
+        keep_fid = args[keep_idx]
+        try:
+            result = apply_merge(config, gid, keep_fact_id=keep_fid, actor="shell")
+            console.print(render_success(f"Approved merge {gid[:8]}, canonical: {keep_fid[:8]}"))
+        except ValueError as e:
+            console.print(render_error(str(e)))
+        return
+
+    if subcmd == "reject" and len(args) >= 2:
+        gid = args[1]
+        try:
+            reject_merge(config, gid, actor="shell")
+            console.print(render_success(f"Rejected merge group {gid[:8]}"))
+        except ValueError as e:
+            console.print(render_error(str(e)))
+        return
+
+    group = get_merge_group(config, subcmd)
+    if group is None:
+        console.print(render_error(f"Merge group not found: {subcmd}"))
+        return
+
+    facts = group.get("member_facts", [])
+    if facts:
+        console.print(render_fact_table(facts))
+    console.print(f"[cyan]Group:[/cyan] {group['id']}")
+    console.print(f"[cyan]Created:[/cyan] {group['created_at'][:16]}")
 
 
 def handle_archive(workspace: Path, fact_id: str, console: Console) -> None:

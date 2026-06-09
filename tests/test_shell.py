@@ -118,20 +118,32 @@ def test_shell_merge_shows_candidates(init_workspace):
     from saturn.daemon.app import create_app
     from httpx import AsyncClient, ASGITransport
     import asyncio
+    import json as _json
 
     async def _setup():
         app = create_app(init_workspace)
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as client:
-            await client.post("/api/facts", json={
+            r1 = await client.post("/api/facts", json={
                 "subject": "MergeTest", "predicate": "has_color", "object": "red",
             })
-            await client.post("/api/facts", json={
-                "subject": "MergeTest", "predicate": "has_color", "object": "blue",
+            r2 = await client.post("/api/facts", json={
+                "subject": "MergeTest", "predicate": "has_color", "object": "redish",
             })
+            return r1.json()["id"], r2.json()["id"]
 
-    asyncio.run(_setup())
+    fid1, fid2 = asyncio.run(_setup())
+
+    from saturn.config import load_config
+    from saturn.db import connect
+    config = load_config(init_workspace)
+    with connect(config.db_path) as conn:
+        conn.execute(
+            "INSERT INTO merge_groups (id, member_fact_ids, created_at) VALUES (?, ?, ?)",
+            ("test_merge_group", _json.dumps([fid1, fid2]), "2026-06-09T00:00:00"),
+        )
+        conn.commit()
 
     result = _run_shell(init_workspace, ["/merge"])
     output = result.stdout + result.stderr
-    assert "MergeTest" in output
+    assert "MergeTest" in output or "Merge Candidates" in output
