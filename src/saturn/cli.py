@@ -103,6 +103,20 @@ def build_parser() -> argparse.ArgumentParser:
     revisions_list_parser.add_argument("--entity-id")
     revisions_list_parser.add_argument("--limit", type=int, default=50)
 
+    revisions_timeline = revisions_subparsers.add_parser("timeline")
+    revisions_timeline.add_argument("entity_id", help="Entity ID (fact, contradiction, merge group)")
+    revisions_timeline.add_argument("--entity-type", choices=["fact", "contradiction", "merge_group"],
+                                    help="Auto-detected if omitted")
+    revisions_timeline.add_argument("--since", help="ISO date filter (e.g. 2026-01-01)")
+    revisions_timeline.add_argument("--until", help="ISO date filter")
+    revisions_timeline.add_argument("--actor", help="Filter by actor name")
+    revisions_timeline.add_argument("--change-type", choices=["created", "updated", "archived",
+                                    "resolved", "superseded", "dismissed"], help="Filter by change type")
+    revisions_timeline.add_argument("--limit", type=int, default=50)
+    revisions_timeline.add_argument("--offset", type=int, default=0)
+    revisions_timeline.add_argument("--format", choices=["text", "json", "oneline"], default="text")
+    revisions_timeline.add_argument("--no-color", action="store_true")
+
     revisions_show_parser = revisions_subparsers.add_parser("show")
     revisions_show_parser.add_argument("revision_id")
 
@@ -314,6 +328,114 @@ def handle_revisions_list(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_revisions_timeline(args: argparse.Namespace) -> int:
+    import json as json_module
+    from saturn.revisions import get_timeline
+
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+
+    with connect(config.db_path) as conn:
+        revisions = get_timeline(
+            conn,
+            entity_id=args.entity_id,
+            entity_type=args.entity_type,
+            since=args.since,
+            until=args.until,
+            actor=args.actor,
+            change_type=args.change_type,
+            limit=args.limit,
+            offset=args.offset,
+        )
+
+    if not revisions:
+        print(f"No revisions found for entity {args.entity_id[:12]}")
+        return 0
+
+    if args.format == "json":
+        output = []
+        for r in revisions:
+            entry = dict(r)
+            if entry.get("before") is not None:
+                try:
+                    entry["before"] = json_module.loads(entry["before"])
+                except (json_module.JSONDecodeError, TypeError):
+                    pass
+            if entry.get("after") is not None:
+                try:
+                    entry["after"] = json_module.loads(entry["after"])
+                except (json_module.JSONDecodeError, TypeError):
+                    pass
+            output.append(entry)
+        print(json_module.dumps(output, indent=2, default=str))
+        return 0
+
+    for r in revisions:
+        ts = r["timestamp"][:19] if r["timestamp"] else "?" * 19
+        actor = r["actor"] or "?"
+        change = r["change_type"] or "?"
+
+        if args.format == "oneline":
+            before_status = _extract_status(r["before"])
+            after_status = _extract_status(r["after"])
+            if before_status != after_status:
+                print(f"{ts}  {actor:<12} {change:<10} {before_status} \u2192 {after_status}")
+            else:
+                changed = _describe_change(r["before"], r["after"])
+                print(f"{ts}  {actor:<12} {change:<10} {changed}")
+        else:
+            before_status = _extract_status(r["before"])
+            after_status = _extract_status(r["after"])
+            changed = _describe_change(r["before"], r["after"])
+            line = f"{ts}  {actor:<12} {change:<10}"
+            if before_status != after_status:
+                line += f" {before_status} \u2192 {after_status}"
+            if changed:
+                line += f"  ({changed})"
+            print(line)
+
+    return 0
+
+
+def _extract_status(before_json: str | None) -> str:
+    if before_json is None:
+        return "\u2014"
+    try:
+        import json
+        data = json.loads(before_json)
+        return data.get("status", "?")
+    except (json.JSONDecodeError, TypeError, AttributeError):
+        return "?"
+    except ImportError:
+        return "?"
+
+
+def _describe_change(before_json: str | None, after_json: str | None) -> str:
+    if before_json is None and after_json is None:
+        return ""
+    try:
+        import json
+        before = json.loads(before_json) if before_json else {}
+        after = json.loads(after_json) if after_json else {}
+    except (json.JSONDecodeError, TypeError):
+        return ""
+
+    changes = []
+    all_keys = set(before.keys()) | set(after.keys())
+    for key in sorted(all_keys):
+        if key == "status":
+            continue
+        b_val = before.get(key, "\u2014")
+        a_val = after.get(key, "\u2014")
+        if b_val != a_val:
+            changes.append(f"{key}: {b_val} \u2192 {a_val}")
+
+    if before_json is None and after_json:
+        changes.append("fact created")
+
+    return "; ".join(changes) if changes else ""
+
+
 def handle_shell() -> int:
     from saturn.shell.app import run_shell
     return run_shell(Path.cwd())
@@ -475,6 +597,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "revisions":
             if args.revisions_command == "list":
                 return handle_revisions_list(args)
+            if args.revisions_command == "timeline":
+                return handle_revisions_timeline(args)
             if args.revisions_command == "show":
                 return handle_revisions_show(args)
         if args.command == "daemon":
