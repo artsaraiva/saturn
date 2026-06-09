@@ -77,3 +77,77 @@ def test_suggest_merges_no_duplicates(init_workspace):
         conn.commit()
     groups = suggest_merges(config, min_similarity=0.5)
     assert len(groups) == 0
+
+
+def test_apply_merge_archives_other_facts(with_duplicates):
+    from saturn.merge import suggest_merges, apply_merge
+    config = with_duplicates
+    groups = suggest_merges(config, min_similarity=0.5)
+    assert len(groups) >= 1
+
+    gid = groups[0]["id"]
+    result = apply_merge(config, gid, keep_fact_id="f1", actor="test")
+
+    assert result["canonical_fact_id"] == "f1"
+    assert result["merge_strategy"] == "keep"
+
+    with connect(config.db_path) as conn:
+        f1 = dict(conn.execute("SELECT * FROM facts WHERE id = 'f1'").fetchone())
+        f2 = dict(conn.execute("SELECT * FROM facts WHERE id = 'f2'").fetchone())
+        assert f1["status"] == "active"
+        assert f2["status"] == "archived"
+
+
+def test_apply_merge_invalid_keep_fact(with_duplicates):
+    from saturn.merge import suggest_merges, apply_merge
+    config = with_duplicates
+    groups = suggest_merges(config, min_similarity=0.5)
+    gid = groups[0]["id"]
+    with pytest.raises(ValueError, match="not a member"):
+        apply_merge(config, gid, keep_fact_id="nonexistent")
+
+
+def test_apply_merge_already_resolved(with_duplicates):
+    from saturn.merge import suggest_merges, apply_merge
+    config = with_duplicates
+    groups = suggest_merges(config, min_similarity=0.5)
+    gid = groups[0]["id"]
+    apply_merge(config, gid, keep_fact_id="f1", actor="test")
+    with pytest.raises(ValueError, match="already resolved"):
+        apply_merge(config, gid, keep_fact_id="f1", actor="test")
+
+
+def test_reject_merge_marks_dismissed(with_duplicates):
+    from saturn.merge import suggest_merges, reject_merge
+    config = with_duplicates
+    groups = suggest_merges(config, min_similarity=0.5)
+    gid = groups[0]["id"]
+    result = reject_merge(config, gid, actor="test")
+    assert result["merge_strategy"] == "reject"
+
+    with connect(config.db_path) as conn:
+        f1 = dict(conn.execute("SELECT status FROM facts WHERE id = 'f1'").fetchone())
+        assert f1["status"] == "active"
+
+
+def test_list_merge_groups(with_duplicates):
+    from saturn.merge import suggest_merges, list_merge_groups, apply_merge
+    config = with_duplicates
+    suggest_merges(config, min_similarity=0.5)
+
+    pending = list_merge_groups(config)
+    assert len(pending) >= 1
+
+    all_groups = list_merge_groups(config, all_=True)
+    assert len(all_groups) >= 1
+
+
+def test_get_merge_group(with_duplicates):
+    from saturn.merge import suggest_merges, get_merge_group
+    config = with_duplicates
+    groups = suggest_merges(config, min_similarity=0.5)
+    gid = groups[0]["id"]
+    detail = get_merge_group(config, gid)
+    assert detail is not None
+    assert "member_facts" in detail
+    assert len(detail["member_facts"]) >= 2
