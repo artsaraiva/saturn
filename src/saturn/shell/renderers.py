@@ -120,6 +120,46 @@ def render_revision_timeline(revisions: list[dict]) -> Panel:
     return Panel("\n".join(lines), title="Revision Timeline", border_style="blue")
 
 
+def render_timeline_entry(r: dict, index: int = 0) -> Panel:
+    timestamp = (r.get("timestamp") or "?")[:19]
+    actor = r.get("actor", "?")
+    change = r.get("change_type", "?")
+    before = r.get("before")
+    after = r.get("after")
+
+    border_colors = {
+        "created": "green",
+        "resolved": "green",
+        "updated": "yellow",
+        "archived": "red",
+        "superseded": "red",
+        "dismissed": "grey",
+    }
+    color = border_colors.get(change, "blue")
+
+    lines = [f"[bold]{timestamp}[/bold] by [cyan]{actor}[/cyan] \u2014 [bold]{change}[/bold]"]
+
+    if after:
+        try:
+            after_data = json.loads(after) if isinstance(after, str) else after
+            if before:
+                before_data = json.loads(before) if isinstance(before, str) else before
+                for key in sorted(set(list(before_data.keys()) + list(after_data.keys()))):
+                    bv = before_data.get(key, "\u2014")
+                    av = after_data.get(key, "\u2014")
+                    if str(bv) != str(av):
+                        lines.append(f"  [dim]{key}:[/dim] {bv} \u2192 [green]{av}[/green]")
+                    else:
+                        lines.append(f"  [dim]{key}:[/dim] {av}")
+            else:
+                for key, val in after_data.items():
+                    lines.append(f"  [dim]{key}:[/dim] {val}")
+        except (json.JSONDecodeError, TypeError):
+            lines.append(f"  {after}")
+
+    return Panel("\n".join(lines), title=f"#{index + 1}", border_style=color)
+
+
 def render_help_table() -> Table:
     table = Table(title="Shell Commands")
     table.add_column("Command", style="cyan")

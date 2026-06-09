@@ -104,7 +104,7 @@ def run_shell(workspace: Path) -> int:
         elif command == "explain-why":
             handle_explain_why(workspace, args[0] if args else "", console)
         elif command == "trace-source":
-            handle_trace_source(workspace, args[0] if args else "", console)
+            handle_trace_source(workspace, args[0] if args else "", args[1:], console)
         elif command == "doctor":
             handle_doctor(workspace, console)
         else:

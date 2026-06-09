@@ -21,6 +21,7 @@ from saturn.shell.renderers import (
     render_info,
     render_revision_timeline,
     render_success,
+    render_timeline_entry,
     status_badge,
 )
 
@@ -236,24 +237,58 @@ def handle_explain_why(workspace: Path, entity_id: str, console: Console) -> Non
             console.print(render_error(f"Not found: {entity_id}"))
 
 
-def handle_trace_source(workspace: Path, fact_id: str, console: Console) -> None:
+def handle_trace_source(workspace: Path, fact_id: str, args: list[str] | None = None, console: Console | None = None) -> None:
+    if console is None:
+        console = Console()
     if not fact_id.strip():
-        console.print(render_error("Fact ID required. Usage: /trace-source <id>"))
+        console.print(render_error("Fact ID required. Usage: /trace-source <id> [--since <date>] [--actor <name>] [--limit N]"))
         return
+
+    since = None
+    until = None
+    actor_filter = None
+    limit = 10
+    offset = 0
+    if args:
+        i = 0
+        while i < len(args):
+            if args[i] == "--since" and i + 1 < len(args):
+                since = args[i + 1]; i += 2
+            elif args[i] == "--until" and i + 1 < len(args):
+                until = args[i + 1]; i += 2
+            elif args[i] == "--actor" and i + 1 < len(args):
+                actor_filter = args[i + 1]; i += 2
+            elif args[i] == "--limit" and i + 1 < len(args):
+                try: limit = int(args[i + 1]); i += 2
+                except: i += 1
+            elif args[i] == "--offset" and i + 1 < len(args):
+                try: offset = int(args[i + 1]); i += 2
+                except: i += 1
+            else:
+                i += 1
+
     try:
         config = require_config(workspace)
         require_initialized_database(config.db_path, config.schema_version)
         with connect(config.db_path) as conn:
-            revisions = list_revisions(conn, entity_type="fact", entity_id=fact_id, limit=50)
+            from saturn.revisions import get_timeline
+            revisions = get_timeline(
+                conn, entity_id=fact_id, since=since, until=until,
+                actor=actor_filter, limit=limit, offset=offset,
+            )
     except WorkspaceNotInitializedError:
         console.print(render_error("Workspace not initialized. Run `saturn init` first."))
         return
 
     if not revisions:
-        console.print(render_info(f"No revisions found for fact {fact_id[:8]}"))
+        console.print(render_info(f"No revisions found for {fact_id[:12]}"))
         return
 
-    console.print(render_revision_timeline([dict(r) for r in revisions]))
+    for i, r in enumerate(revisions):
+        console.print(render_timeline_entry(dict(r), index=offset + i))
+
+    if len(revisions) == limit:
+        console.print(f"[dim]Showing {limit} entries (offset={offset}). Use --offset {offset + limit} for more.[/dim]")
 
 
 def handle_doctor(workspace: Path, console: Console) -> None:
