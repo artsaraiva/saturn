@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 import sys
 
@@ -104,6 +105,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     revisions_show_parser = revisions_subparsers.add_parser("show")
     revisions_show_parser.add_argument("revision_id")
+
+    merge_parser = subparsers.add_parser("merge")
+    merge_sub = merge_parser.add_subparsers(dest="merge_command", required=True)
+
+    merge_suggest = merge_sub.add_parser("suggest")
+    merge_suggest.add_argument("--min-similarity", type=float, default=0.6)
+    merge_suggest.add_argument("--limit", type=int, default=20)
+
+    merge_show = merge_sub.add_parser("show")
+    merge_show.add_argument("group_id")
+
+    merge_apply = merge_sub.add_parser("apply")
+    merge_apply.add_argument("group_id")
+    merge_apply.add_argument("--keep", required=True, help="Fact ID to keep as canonical")
+
+    merge_reject = merge_sub.add_parser("reject")
+    merge_reject.add_argument("group_id")
 
     maintain_parser = subparsers.add_parser("maintain")
     maintain_sub = maintain_parser.add_subparsers(dest="maintain_command", required=True)
@@ -371,6 +389,64 @@ def handle_revisions_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def handle_merge(args: argparse.Namespace) -> int:
+    from saturn.merge import (
+        apply_merge,
+        get_merge_group,
+        list_merge_groups,
+        reject_merge,
+        suggest_merges,
+    )
+    config = require_config(Path.cwd())
+    require_initialized_database(config.db_path, config.schema_version)
+
+    if args.merge_command == "suggest":
+        groups = suggest_merges(config, min_similarity=args.min_similarity, limit=args.limit)
+        if not groups:
+            print("No merge candidates found.")
+            return 0
+        for g in groups:
+            members = json.loads(g["member_fact_ids"])
+            print(f"{g['id'][:8]} | {len(members)} members | {g['created_at'][:16]}")
+        return 0
+
+    if args.merge_command == "show":
+        group = get_merge_group(config, args.group_id)
+        if group is None:
+            print(f"Merge group not found: {args.group_id}")
+            return 1
+        print(f"Group: {group['id']}")
+        print(f"Created: {group['created_at']}")
+        print(f"Members ({len(group.get('member_facts', []))}):")
+        for f in group.get("member_facts", []):
+            print(f"  {f['id'][:8]} | {f['subject']} | {f['predicate']} | {f['object']} | conf={f['confidence']}")
+        if group.get("canonical_fact_id"):
+            print(f"Canonical: {group['canonical_fact_id'][:8]}")
+        if group.get("merge_strategy"):
+            print(f"Strategy: {group['merge_strategy']}")
+        return 0
+
+    if args.merge_command == "apply":
+        try:
+            result = apply_merge(config, args.group_id, keep_fact_id=args.keep, actor="cli")
+            print(f"Merged. Canonical: {result['canonical_fact_id'][:8]}")
+            return 0
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+
+    if args.merge_command == "reject":
+        try:
+            reject_merge(config, args.group_id, actor="cli")
+            print(f"Rejected merge group {args.group_id[:8]}")
+            return 0
+        except ValueError as e:
+            print(str(e), file=sys.stderr)
+            return 1
+
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     try:
@@ -404,6 +480,8 @@ def main(argv: list[str] | None = None) -> int:
             return handle_daemon(args)
         if args.command == "shell":
             return handle_shell()
+        if args.command == "merge":
+            return handle_merge(args)
         if args.command == "maintain":
             return handle_maintain(args)
         if args.command == "export":
