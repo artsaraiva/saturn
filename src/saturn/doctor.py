@@ -46,14 +46,21 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - `saturn daemon logs`
   - `saturn-mcp` MCP server
   - `saturn shell` (interactive TUI)
+  - `saturn wiki build`
+  - `saturn wiki serve`
+  - `saturn export graph`
+  - `saturn maintain run`
+  - `saturn_sdk` Python client
+  - agent skills pack (Hermes + OpenCode)
 - Not-started slices:
-  - wiki projection and graph export
-  - graph export
-  - agent skills pack
+  - desktop app
+  - graph visualization UI
+  - team/multi-tenant features
 - Blockers: none
 - Recommended next tasks:
-  - implement wiki projection and graph export
-  - implement graph export
+  - Phase 2: desktop app
+  - Phase 2: contradiction inbox and merge review UI
+  - Phase 2: policy engine
 """
 
     payload = {
@@ -70,17 +77,23 @@ def refresh_project_status_docs(project_root: Path) -> None:
             "saturn daemon start/stop/status/logs",
             "saturn-mcp MCP server",
             "saturn shell (interactive TUI)",
+            "saturn wiki build/serve",
+            "saturn export graph",
+            "saturn maintain run",
+            "saturn_sdk Python client",
+            "agent skills pack",
         ],
         "not_started_slices": [
-            "wiki projection and graph export",
-            "graph export",
-            "agent skills pack",
+            "desktop app",
+            "graph visualization UI",
+            "team/multi-tenant features",
         ],
         "blockers": [],
         "open_decisions": [],
         "recommended_next_tasks": [
-            "implement wiki projection and graph export",
-            "implement graph export",
+            "Phase 2: desktop app",
+            "Phase 2: contradiction inbox and merge review UI",
+            "Phase 2: policy engine",
         ],
     }
 
