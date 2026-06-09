@@ -13,6 +13,8 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License: MIT"></a>
   <a href="#"><img src="https://img.shields.io/badge/Python-3.11+-blue?style=flat" alt="Python 3.11+"></a>
   <a href="#"><img src="https://img.shields.io/badge/Storage-SQLite-lightgrey?style=flat" alt="Storage: SQLite"></a>
+  <a href="#"><img src="https://img.shields.io/badge/API-FastAPI-teal?style=flat" alt="API: FastAPI"></a>
+  <a href="#"><img src="https://img.shields.io/badge/MCP-v1.0-orange?style=flat" alt="MCP v1"></a>
 </p>
 
 <p align="center">
@@ -42,8 +44,10 @@ The problem: today's memory systems (vector DBs, chat histories) degrade over we
 | **Contradiction detection** | Same subject + same predicate + different object = flagged automatically. |
 | **Contradiction resolution** | Five resolution actions: keep A, keep B, merge, dismiss, or defer. |
 | **Workspace health** | Schema validation, database integrity checks, status reporting via `saturn doctor`. |
-| **Zero heavy deps** | Python 3.11+ stdlib for core. SQLite for persistence. |
-| **Agent-ready** | CLI-first design. Clean JSON output suitable for MCP tool wrapping. |
+| **Zero heavy deps (CLI)** | Python 3.11+ stdlib for core CLI. SQLite for persistence. |
+| **REST API** | FastAPI daemon with full CRUD endpoints for facts, queries, contradictions, revisions, ingestion. |
+| **MCP server** | Native MCP protocol server — AI tools (OpenCode, Claude Code) connect directly via `saturn-mcp`. |
+| **Daemon lifecycle** | `saturn daemon start|stop|status|logs` for production deployments. |
 
 ## Quick Start
 
@@ -89,6 +93,29 @@ saturn revisions list --entity-type fact
 saturn revisions show <revision-id>
 ```
 
+### Daemon (REST API)
+
+```bash
+saturn daemon start            # start on :8468 (background)
+saturn daemon status           # check health
+curl localhost:8468/api/health # query API
+saturn daemon stop             # graceful shutdown
+```
+
+### MCP server (for AI agents)
+
+Configure your AI tool to use `saturn-mcp` as an MCP server command. Example for OpenCode:
+
+```json
+{
+  "mcpServers": {
+    "saturn": {
+      "command": "saturn-mcp"
+    }
+  }
+}
+```
+
 ## All Commands
 
 | Command | Description |
@@ -104,29 +131,39 @@ saturn revisions show <revision-id>
 | `saturn revisions list` | View revision history |
 | `saturn revisions show <id>` | View revision details |
 | `saturn doctor` | Check workspace health |
+| `saturn daemon start` | Start REST API daemon (default :8468) |
+| `saturn daemon stop` | Gracefully stop daemon |
+| `saturn daemon status` | Check if daemon is running |
+| `saturn daemon logs` | Tail daemon log file |
+| `saturn-mcp` | MCP server for AI tools (stdio transport) |
 
 ## Roadmap
 
 | Phase | Status | Deliverables |
 |-------|--------|-------------|
 | **Phase 1** | Done | `init`, `query`, `ingest`, `facts add/update/archive`, `contradictions list/resolve`, `revisions list/show`, `doctor`, schema v1→v2 migration, 5 contradiction resolution actions |
-| **Phase 2** | Planned | REST API + MCP server, `saturn shell`, static wiki generation with backlinks, graph export, installable agent skills pack |
+| **Phase 2** | In progress | REST API + MCP server (done), `saturn shell` (next), wiki generation with backlinks, graph export, installable agent skills pack |
 
 ## Architecture
 
 ```
-cli/
-  commands/         init, facts, ingest, query, contradictions, revisions, doctor
-core/
-  database.py       SQLite connection + schema
-  models.py         Fact, Revision, Contradiction data classes
-  config.py         .saturn/config.toml reader
-  ingest.py         CSV/TSV/JSON/TXT parser pipeline
-  contradictions.py Detection + resolution logic
-  doctor.py         Schema validation + health checks
+cli/                  CLI entrypoint — argparse dispatch
+  commands/           init, facts, ingest, query, contradictions, revisions, doctor, daemon
+daemon/               REST API + MCP server (Phase 2)
+  app.py              FastAPI application factory
+  lifecycle.py        start/stop/status/logs
+  mcp_server.py       MCP server (6 tools, stdio transport)
+  routes/             facts, query, contradictions, revisions, ingest, health
+core/                 Shared business logic
+  database.py         SQLite connection + schema
+  models.py           Fact, Revision, Contradiction data classes
+  config.py           .saturn/config.toml reader
+  ingest.py           CSV/TSV/JSON/TXT parser pipeline
+  contradictions.py   Detection + resolution logic
+  doctor.py           Schema validation + health checks
 ```
 
-Built with Python 3.11+ and the standard library. No external dependencies for core functionality. SQLite for persistence.
+CLI core built with Python 3.11+ stdlib (zero external deps). Daemon adds FastAPI + uvicorn + mcp SDK. SQLite for persistence.
 
 ## Star History
 
