@@ -45,11 +45,15 @@ def refresh_project_status_docs(project_root: Path) -> None:
   - `saturn daemon status`
   - `saturn daemon logs`
   - `saturn-mcp` MCP server
+  - `saturn shell` (interactive TUI)
 - Not-started slices:
   - wiki projection and graph export
+  - graph export
+  - agent skills pack
 - Blockers: none
 - Recommended next tasks:
   - implement wiki projection and graph export
+  - implement graph export
 """
 
     payload = {
@@ -65,14 +69,18 @@ def refresh_project_status_docs(project_root: Path) -> None:
             "saturn revisions list/show",
             "saturn daemon start/stop/status/logs",
             "saturn-mcp MCP server",
+            "saturn shell (interactive TUI)",
         ],
         "not_started_slices": [
             "wiki projection and graph export",
+            "graph export",
+            "agent skills pack",
         ],
         "blockers": [],
         "open_decisions": [],
         "recommended_next_tasks": [
             "implement wiki projection and graph export",
+            "implement graph export",
         ],
     }
 
